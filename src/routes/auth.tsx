@@ -4,7 +4,8 @@ import { Check, Scale, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { logAuthEvent } from "@/lib/edge-functions";
 import { cn } from "@/lib/utils";
-import heroImage from "@/assets/hero-advocate.jpg";
+import heroSignIn from "@/assets/hero-signin-courthouse.jpg";
+import heroSignUp from "@/assets/hero-signup-signing.jpg";
 
 export const Route = createFileRoute("/auth")({
   ssr: false,
@@ -51,27 +52,24 @@ function AuthPage() {
       ? "signup"
       : "signin";
   });
-  // TODO(images): sign-in and sign-up currently share the landing page's hero
-  // photo. Swap in a distinct image per mode once one is sourced — see the
-  // heroCopy.image field below for where each mode's asset is wired in.
   const heroCopy =
     mode === "signup"
       ? {
-          image: heroImage,
-          alt: "Advocate in court robes checking case details on a phone in a high court corridor",
+          image: heroSignUp,
+          alt: "Close-up of a hand signing a document with a fountain pen",
           heading: "A disciplined practice, run from a single workspace.",
           body: "Matters, hearing diary, documents, clients and billing — brought together for how litigation is practised in Indian courts.",
         }
       : mode === "forgot"
         ? {
-            image: heroImage,
-            alt: "Advocate in court robes checking case details on a phone in a high court corridor",
+            image: heroSignIn,
+            alt: "Colonnade inside a courthouse, columns receding toward a lit doorway",
             heading: "Back into your chamber in a moment.",
             body: "We'll email a reset link to the address on file so you're back to your matters and diary quickly.",
           }
         : {
-            image: heroImage,
-            alt: "Advocate in court robes checking case details on a phone in a high court corridor",
+            image: heroSignIn,
+            alt: "Colonnade inside a courthouse, columns receding toward a lit doorway",
             heading: "Welcome back to your chamber.",
             body: "Sign in to pick up your matters, hearing diary, documents and billing right where you left off.",
           };
