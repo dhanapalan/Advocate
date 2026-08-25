@@ -257,7 +257,7 @@ function Landing() {
                   },
                   {
                     head: "Encrypted, India-hosted",
-                    body: "Data is stored in India (Mumbai region). All connections are encrypted in transit, and passwords are never stored in plain text.",
+                    body: "Data is stored in India (Mumbai region), encrypted at rest. Privileged case content carries a second layer of application-level encryption on top of that.",
                   },
                   {
                     head: "Security-tested, zero open critical findings",

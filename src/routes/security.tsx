@@ -31,7 +31,7 @@ const pillars = [
   {
     icon: Lock,
     title: "Encrypted, India-hosted",
-    body: "Data is stored in India (Mumbai region). All connections are encrypted in transit, and passwords are never stored in plain text.",
+    body: "Data is stored in India (Mumbai region), encrypted at rest by default. All connections are encrypted in transit, and passwords are never stored in plain text. Privileged case content — matter notes, client notes, hearing details, document text, drafts — carries a second layer of encryption at the application level, so even direct database access reveals no plaintext.",
   },
   {
     icon: ShieldCheck,
