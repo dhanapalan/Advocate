@@ -1,13 +1,44 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { Loader2, Plus, ReceiptIndianRupee } from "lucide-react";
+import {
+  Ban,
+  Loader2,
+  Mail,
+  Phone,
+  Plus,
+  PlayCircle,
+  ReceiptIndianRupee,
+  RotateCcw,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { confirmDestructive, confirmPermanentRemoval } from "@/lib/confirm";
 import { DataTable, Tag, type Tone } from "@/components/app/primitives";
 import { activateSubscription } from "@/lib/subscription-invoice";
+import { listTenantOwners } from "@/lib/admin-tenants.functions";
 import type { Database } from "@/integrations/supabase/types";
+
+type TenantOwner = { fullName: string | null; phone: string | null; email: string | null };
+
+// Cosmetic variety for the tenant-name avatar chip — cycles through the same
+// docket-* jewel tones used on the marketing pages, picked deterministically
+// from the tenant id so a given tenant's color never changes between loads.
+const AVATAR_TONES = ["sapphire", "amber", "teal", "rose", "emerald", "violet"] as const;
+const avatarToneClasses: Record<(typeof AVATAR_TONES)[number], string> = {
+  sapphire: "bg-docket-sapphire text-docket-sapphire-foreground",
+  amber: "bg-docket-amber text-docket-amber-foreground",
+  teal: "bg-docket-teal text-docket-teal-foreground",
+  rose: "bg-docket-rose text-docket-rose-foreground",
+  emerald: "bg-docket-emerald text-docket-emerald-foreground",
+  violet: "bg-docket-violet text-docket-violet-foreground",
+};
+function avatarTone(id: string): (typeof AVATAR_TONES)[number] {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+  return AVATAR_TONES[hash % AVATAR_TONES.length]!;
+}
 
 const SUBSCRIPTION_GRACE_DAYS = 3;
 const PAYABLE_PLANS = ["solo_basic", "solo_pro", "chamber"] as const;
@@ -69,7 +100,9 @@ async function fetchTenants(): Promise<TenantWithLicense[]> {
 
 function AdminTenants() {
   const activate = useServerFn(activateSubscription);
+  const loadOwners = useServerFn(listTenantOwners);
   const [tenants, setTenants] = useState<TenantWithLicense[]>([]);
+  const [owners, setOwners] = useState<Map<string, TenantOwner>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -79,7 +112,9 @@ function AdminTenants() {
     setLoading(true);
     setError(null);
     try {
-      setTenants(await fetchTenants());
+      const [tenantRows, ownerRows] = await Promise.all([fetchTenants(), loadOwners()]);
+      setTenants(tenantRows);
+      setOwners(new Map(ownerRows.map((owner) => [owner.tenantId, owner])));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Failed to load tenants.");
     } finally {
@@ -89,6 +124,9 @@ function AdminTenants() {
 
   useEffect(() => {
     void reload();
+    // reload is re-created every render (it closes over the useServerFn
+    // results); listing it here would re-fetch in a loop.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleCreate(event: React.FormEvent) {
@@ -268,97 +306,136 @@ function AdminTenants() {
         ) : tenants.length === 0 ? (
           <p className="text-sm text-muted-foreground">No tenants yet.</p>
         ) : (
-          <DataTable headers={["Tenant", "Slug", "Status", "Plan", "Billing", "Subscription", ""]}>
-            {tenants.map((tenant) => (
-              <tr key={tenant.id} className="hover:bg-secondary/40">
-                <td className="px-4 py-3 font-medium">{tenant.name}</td>
-                <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{tenant.slug}</td>
-                <td className="px-4 py-3">
-                  <select
-                    value={tenant.status}
-                    onChange={(event) =>
-                      handleStatusChange(tenant.id, event.target.value as Tenant["status"])
-                    }
-                    className="rounded border border-input bg-background px-2 py-1 text-xs"
-                  >
-                    <option value="active">active</option>
-                    <option value="suspended">suspended</option>
-                    <option value="cancelled">cancelled</option>
-                  </select>
-                </td>
-                <td className="px-4 py-3">
-                  {tenant.license ? (
-                    <div className="flex items-center gap-2">
-                      <Tag tone="neutral">{tenant.license.plan}</Tag>
-                      {tenant.license.plan !== "trial" ? (
-                        <button
-                          type="button"
-                          onClick={() => handleRevertToTrial(tenant.license!.id)}
-                          className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-                        >
-                          revert to trial
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : (
-                    <span className="text-xs text-muted-foreground">no license</span>
-                  )}
-                </td>
-                <td className="px-4 py-3">
-                  {tenant.license ? (
-                    <BillingActivation
-                      currentPlan={tenant.license.plan}
-                      onActivate={(plan, cadence) => handleActivate(tenant.id, plan, cadence)}
-                    />
-                  ) : null}
-                </td>
-                <td className="px-4 py-3">
-                  {tenant.license ? (
-                    <div className="space-y-1">
-                      <Tag tone={subscriptionStateTone[subscriptionState(tenant.license)]}>
-                        {subscriptionState(tenant.license)}
-                      </Tag>
-                      {tenant.license.current_period_end ? (
+          <DataTable headers={["Tenant", "Contact", "Status", "Plan", "Subscription", "Actions"]}>
+            {tenants.map((tenant) => {
+              const owner = owners.get(tenant.id);
+              const tone = avatarTone(tenant.id);
+              return (
+                <tr key={tenant.id} className="hover:bg-secondary/40">
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`flex size-8 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarToneClasses[tone]}`}
+                      >
+                        {tenant.name.trim().charAt(0).toUpperCase() || "?"}
+                      </span>
+                      <div>
+                        <p className="font-medium">{tenant.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {tenant.license.billing_cadence} · through{" "}
-                          {new Date(tenant.license.current_period_end).toLocaleDateString("en-IN")}
+                          Since {new Date(tenant.created_at).toLocaleDateString("en-IN")}
                         </p>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {owner ? (
+                      <div className="space-y-1">
+                        <p className="flex items-center gap-1.5 text-xs">
+                          <Mail className="size-3.5 shrink-0 text-muted-foreground" />
+                          {owner.email ?? <span className="text-muted-foreground">—</span>}
+                        </p>
+                        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Phone className="size-3.5 shrink-0" />
+                          {owner.phone ?? "—"}
+                        </p>
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground italic">No owner yet</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <select
+                      value={tenant.status}
+                      onChange={(event) =>
+                        handleStatusChange(tenant.id, event.target.value as Tenant["status"])
+                      }
+                      className="rounded border border-input bg-background px-2 py-1 text-xs"
+                    >
+                      <option value="active">active</option>
+                      <option value="suspended">suspended</option>
+                      <option value="cancelled">cancelled</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    {tenant.license ? (
+                      <div className="flex items-center gap-2">
+                        <Tag tone="neutral">{tenant.license.plan}</Tag>
+                        {tenant.license.plan !== "trial" ? (
+                          <button
+                            type="button"
+                            title="Revert to trial"
+                            onClick={() => handleRevertToTrial(tenant.license!.id)}
+                            className="flex size-6 items-center justify-center rounded text-muted-foreground hover:bg-secondary hover:text-foreground"
+                          >
+                            <RotateCcw className="size-3.5" />
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-muted-foreground">no license</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {tenant.license ? (
+                      <div className="space-y-1">
+                        <Tag tone={subscriptionStateTone[subscriptionState(tenant.license)]}>
+                          {subscriptionState(tenant.license)}
+                        </Tag>
+                        {tenant.license.current_period_end ? (
+                          <p className="text-xs text-muted-foreground">
+                            {tenant.license.billing_cadence} · through{" "}
+                            {new Date(tenant.license.current_period_end).toLocaleDateString(
+                              "en-IN",
+                            )}
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {tenant.license ? (
+                        <BillingActivation
+                          currentPlan={tenant.license.plan}
+                          onActivate={(plan, cadence) => handleActivate(tenant.id, plan, cadence)}
+                        />
                       ) : null}
-                      {tenant.license.plan !== "trial" ? (
+                      {tenant.license && tenant.license.plan !== "trial" ? (
                         tenant.license.status === "cancelled" ? (
                           <button
                             type="button"
+                            title="Reactivate license"
                             onClick={() => handleReactivateLicense(tenant.license!.id)}
-                            className="block text-xs text-accent underline-offset-4 hover:underline"
+                            className="flex size-7 items-center justify-center rounded border border-accent/30 text-accent hover:bg-accent/10"
                           >
-                            Reactivate
+                            <PlayCircle className="size-3.5" />
                           </button>
                         ) : (
                           <button
                             type="button"
+                            title="Cancel license"
                             onClick={() => handleCancelLicense(tenant.license!.id, tenant.name)}
-                            className="block text-xs text-destructive underline-offset-4 hover:underline"
+                            className="flex size-7 items-center justify-center rounded border border-warning/40 text-warning-foreground hover:bg-warning/10"
                           >
-                            Cancel license
+                            <Ban className="size-3.5" />
                           </button>
                         )
                       ) : null}
+                      <button
+                        type="button"
+                        title="Delete tenant"
+                        onClick={() => handleDelete(tenant.id)}
+                        className="flex size-7 items-center justify-center rounded border border-destructive/30 text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="size-3.5" />
+                      </button>
                     </div>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  <button
-                    type="button"
-                    onClick={() => handleDelete(tenant.id)}
-                    className="text-xs font-medium text-destructive hover:underline"
-                  >
-                    Delete
-                  </button>
-                </td>
-              </tr>
-            ))}
+                  </td>
+                </tr>
+              );
+            })}
           </DataTable>
         )}
       </div>
