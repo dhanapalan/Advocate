@@ -85,6 +85,10 @@ function Contact() {
                 <dd className="text-muted-foreground">chambers@lexdiary.online</dd>
               </div>
               <div>
+                <dt className="font-semibold">Phone — help and other enquiries</dt>
+                <dd className="text-muted-foreground">+91 70100 61822</dd>
+              </div>
+              <div>
                 <dt className="font-semibold">Support hours</dt>
                 <dd className="text-muted-foreground">Mon–Sat, 9:00–20:00 IST</dd>
               </div>

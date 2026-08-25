@@ -13,6 +13,7 @@ export const Route = createFileRoute("/_authenticated/app/subscription")({
 
 const RAZORPAY_LINK = "https://razorpay.me/@lexdiary";
 const BILLING_EMAIL = "chambers@lexdiary.online";
+const SUPPORT_PHONE = "+91 70100 61822";
 const GST_RATE = 0.18;
 // Annual bills for 10 months' worth — 2 months free relative to paying monthly.
 const ANNUAL_MONTHS_CHARGED = 10;
@@ -266,7 +267,8 @@ function Subscription() {
             {BILLING_EMAIL}
           </a>{" "}
           with your chamber name and the payment reference, and we'll activate your plan, usually
-          within a business day.
+          within a business day. Need help sooner, or have another question? Call or WhatsApp{" "}
+          <span className="font-medium text-foreground">{SUPPORT_PHONE}</span>.
         </p>
       </div>
     </AppShell>
