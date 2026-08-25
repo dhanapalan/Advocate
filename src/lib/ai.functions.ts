@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { decryptField, encryptField } from "@/lib/field-encryption";
 
 // AI-calling functions (askAssistant, analyzeDocument, generateDraft,
 // generateBriefing) live in supabase/functions/ as Edge Functions — see
@@ -94,7 +95,9 @@ export const listDrafts = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(20);
     if (error) throw new Error(error.message);
-    return data ?? [];
+    return Promise.all(
+      (data ?? []).map(async (d) => ({ ...d, content: await decryptField(d.content) })),
+    );
   });
 
 export const updateDraftStatus = createServerFn({ method: "POST" })
@@ -119,7 +122,7 @@ export const saveDraft = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
       .from("ai_drafts")
-      .update({ content: data.content })
+      .update({ content: await encryptField(data.content) })
       .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
@@ -148,10 +151,10 @@ export const saveDictatedDraft = createServerFn({ method: "POST" })
         doc_type: data.docType,
         matter_ref: data.matterRef ?? null,
         instructions: "(Dictated)",
-        content: data.content,
+        content: await encryptField(data.content),
       })
       .select("id, doc_type, matter_ref, instructions, content, status, created_at")
       .single();
     if (error) throw new Error(error.message);
-    return saved;
+    return { ...saved, content: data.content };
   });

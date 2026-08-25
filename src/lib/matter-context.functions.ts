@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getOwnIntegrations } from "@/lib/tenant-integrations";
+import { decryptField } from "@/lib/field-encryption";
 
 // MatterContextService (K3) — the single, reusable place that assembles
 // everything LexDiary actually knows about one matter, tenant-scoped and
@@ -115,19 +116,21 @@ export const getMatterContext = createServerFn({ method: "GET" })
     const hearingById = new Map(
       [...(hearingsByIdRes.data ?? []), ...(hearingsByTitleRes.data ?? [])].map((h) => [h.id, h]),
     );
-    const hearings: MatterContextHearing[] = [...hearingById.values()]
-      .sort((a, b) => a.hearing_date.localeCompare(b.hearing_date))
-      .map((h) => ({
-        id: h.id,
-        hearingDate: h.hearing_date,
-        hearingTime: h.hearing_time,
-        court: h.court,
-        purpose: h.purpose,
-        status: h.status,
-        courtHall: h.court_hall,
-        bench: h.bench,
-        causeListRecordId: h.cause_list_record_id,
-      }));
+    const hearings: MatterContextHearing[] = await Promise.all(
+      [...hearingById.values()]
+        .sort((a, b) => a.hearing_date.localeCompare(b.hearing_date))
+        .map(async (h) => ({
+          id: h.id,
+          hearingDate: h.hearing_date,
+          hearingTime: h.hearing_time,
+          court: h.court,
+          purpose: await decryptField(h.purpose),
+          status: h.status,
+          courtHall: h.court_hall,
+          bench: h.bench,
+          causeListRecordId: h.cause_list_record_id,
+        })),
+    );
 
     const matchedRecordIds = (matchesRes.data ?? []).map((m) => m.record_id);
     let causeListEvents: MatterContextCauseListEvent[] = [];
@@ -209,7 +212,7 @@ export const getMatterContext = createServerFn({ method: "GET" })
         status: matterRow.status,
         opposingParty: matterRow.opposing_party,
         filedDate: matterRow.filed_date,
-        notes: matterRow.notes,
+        notes: await decryptField(matterRow.notes),
         createdAt: matterRow.created_at,
       },
       hearings,
@@ -246,13 +249,15 @@ export const getMatterDocumentTexts = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false });
     if (error) throw new Error(error.message);
 
-    return (documents ?? []).map((d) => ({
-      id: d.id,
-      name: d.name,
-      docKind: d.doc_kind,
-      rawText: d.raw_text,
-      createdAt: d.created_at,
-    }));
+    return Promise.all(
+      (documents ?? []).map(async (d) => ({
+        id: d.id,
+        name: d.name,
+        docKind: d.doc_kind,
+        rawText: await decryptField(d.raw_text),
+        createdAt: d.created_at,
+      })),
+    );
   });
 
 // K4 Ask My Case — conversations scoped to one matter, unlike the general

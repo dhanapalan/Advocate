@@ -7,6 +7,7 @@ import {
   LEGAL_SYSTEM_PROMPT,
 } from "../_shared/ai.ts";
 import { requireModule } from "../_shared/modules.ts";
+import { encryptField } from "../_shared/field-encryption.ts";
 
 Deno.serve(async (req) => {
   const preflight = handleOptions(req);
@@ -60,7 +61,7 @@ Deno.serve(async (req) => {
     user_id: userId,
     name: body.name,
     matter_ref: body.matterRef ?? null,
-    raw_text: body.text.slice(0, 60000),
+    raw_text: await encryptField(body.text.slice(0, 60000)),
     doc_kind: typeof parsed?.["doc_kind"] === "string" ? (parsed["doc_kind"] as string) : null,
     summary: typeof parsed?.["summary"] === "string" ? (parsed["summary"] as string) : raw,
     parties: Array.isArray(parsed?.["parties"]) ? parsed["parties"] : [],

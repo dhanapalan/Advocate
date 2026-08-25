@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { findClashKeys, isClashing } from "@/lib/hearing-conflicts";
 import { getOwnIntegrations } from "@/lib/tenant-integrations";
 import { todayIsoIST } from "@/lib/date-ist";
+import { decryptField } from "@/lib/field-encryption";
 
 // Deterministic aggregation for the Court Morning Brief. Every value here
 // comes straight from a real query — nothing is inferred or generated. The
@@ -138,7 +139,12 @@ export const getMorningBrief = createServerFn({ method: "GET" })
       .order("hearing_time", { ascending: true, nullsFirst: false });
     if (hearingsError) throw new Error(hearingsError.message);
 
-    const hearings = todaysHearingsRaw ?? [];
+    const hearings = await Promise.all(
+      (todaysHearingsRaw ?? []).map(async (h) => ({
+        ...h,
+        purpose: await decryptField(h.purpose),
+      })),
+    );
     if (hearings.length === 0) {
       return {
         date: targetDate,
@@ -207,8 +213,14 @@ export const getMorningBrief = createServerFn({ method: "GET" })
 
     // priorHearingsRes is ordered newest-first, so the first row seen per
     // title is the most recent prior hearing for that matter.
-    const previousByTitle = new Map<string, (typeof priorHearingsRes.data)[number]>();
-    for (const row of priorHearingsRes.data ?? []) {
+    const priorHearings = await Promise.all(
+      (priorHearingsRes.data ?? []).map(async (row) => ({
+        ...row,
+        purpose: await decryptField(row.purpose),
+      })),
+    );
+    const previousByTitle = new Map<string, (typeof priorHearings)[number]>();
+    for (const row of priorHearings) {
       if (!previousByTitle.has(row.matter_title)) previousByTitle.set(row.matter_title, row);
     }
 

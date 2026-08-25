@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { decryptField, encryptField } from "@/lib/field-encryption";
 
 // Tenant-scoped matters/clients CRUD. RLS (tenant_id = current_tenant_id())
 // does the real enforcement — these handlers never accept or trust a
@@ -36,7 +37,8 @@ export const getMatter = createServerFn({ method: "GET" })
       .eq("id", data.matterId)
       .maybeSingle();
     if (error) throw new Error(error.message);
-    return matter;
+    if (!matter) return matter;
+    return { ...matter, notes: await decryptField(matter.notes) };
   });
 
 // Real omission, not an intentional Phase-1 gap — flagged in the Gate 1 QA
@@ -72,7 +74,7 @@ export const updateMatter = createServerFn({ method: "POST" })
         opposing_party: data.opposingParty ?? null,
         filed_date: data.filedDate ?? null,
         status: data.status,
-        notes: data.notes ?? null,
+        notes: await encryptField(data.notes),
       })
       .eq("id", data.matterId)
       .select(
@@ -80,7 +82,9 @@ export const updateMatter = createServerFn({ method: "POST" })
       )
       .single();
     if (error) throw new Error(error.message);
-    return saved;
+    // Already have the plaintext the caller sent — return that rather than
+    // decrypting what was just written back.
+    return { ...saved, notes: data.notes ?? null };
   });
 
 // DELETE is restricted to tenant admins by RLS (is_tenant_admin()) — a
@@ -144,7 +148,9 @@ export const listClients = createServerFn({ method: "GET" })
       .order("created_at", { ascending: false })
       .limit(100);
     if (error) throw new Error(error.message);
-    return data ?? [];
+    return Promise.all(
+      (data ?? []).map(async (client) => ({ ...client, notes: await decryptField(client.notes) })),
+    );
   });
 
 // Same fix as updateMatter/deleteMatter above, same reason: RLS already
@@ -170,13 +176,13 @@ export const updateClient = createServerFn({ method: "POST" })
         name: data.name,
         phone: data.phone ?? null,
         email: data.email || null,
-        notes: data.notes ?? null,
+        notes: await encryptField(data.notes),
       })
       .eq("id", data.clientId)
       .select("id, name, phone, email, notes, created_at")
       .single();
     if (error) throw new Error(error.message);
-    return saved;
+    return { ...saved, notes: data.notes ?? null };
   });
 
 export const deleteClient = createServerFn({ method: "POST" })
@@ -211,11 +217,11 @@ export const createClient = createServerFn({ method: "POST" })
         name: data.name,
         phone: data.phone ?? null,
         email: data.email ?? null,
-        notes: data.notes ?? null,
+        notes: await encryptField(data.notes),
         created_by: context.userId,
       })
       .select("id, name, phone, email, notes, created_at")
       .single();
     if (error) throw new Error(error.message);
-    return saved;
+    return { ...saved, notes: data.notes ?? null };
   });

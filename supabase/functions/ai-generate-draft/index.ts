@@ -2,6 +2,7 @@ import { handleOptions, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { authedClient, requireUserId } from "../_shared/auth.ts";
 import { chatComplete, enforceUsageQuota, LEGAL_SYSTEM_PROMPT } from "../_shared/ai.ts";
 import { requireModule } from "../_shared/modules.ts";
+import { encryptField } from "../_shared/field-encryption.ts";
 
 Deno.serve(async (req) => {
   const preflight = handleOptions(req);
@@ -60,11 +61,13 @@ Deno.serve(async (req) => {
       doc_type: body.docType,
       matter_ref: body.matterRef ?? null,
       instructions: body.instructions,
-      content,
+      content: await encryptField(content),
     })
     .select("id, doc_type, matter_ref, instructions, content, status, created_at")
     .single();
   if (error) return errorResponse(req, error.message, 500);
 
-  return jsonResponse(req, saved);
+  // Already have the plaintext generated above — return that rather than
+  // decrypting what was just written back.
+  return jsonResponse(req, { ...saved, content });
 });

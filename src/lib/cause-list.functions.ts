@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { encryptField } from "@/lib/field-encryption";
 import { parseBulkCauseList } from "@/lib/cause-list-parse";
 import {
   matchCauseListRecord,
@@ -184,7 +185,7 @@ async function reconcileHearing(
     court: record.court,
     hearing_date: record.list_date,
     hearing_time: null,
-    purpose: record.stage,
+    purpose: await encryptField(record.stage),
     status: "confirmed",
     court_hall: record.court_hall,
     bench: record.bench,

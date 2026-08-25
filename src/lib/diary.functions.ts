@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { decryptField, encryptField } from "@/lib/field-encryption";
 
 // Tenant-scoped hearings CRUD. Same trust model as matters.functions.ts:
 // tenant_id is never accepted from the client, it's DB-derived.
@@ -14,7 +15,9 @@ export const listHearings = createServerFn({ method: "GET" })
       .order("hearing_date", { ascending: true })
       .limit(200);
     if (error) throw new Error(error.message);
-    return data ?? [];
+    return Promise.all(
+      (data ?? []).map(async (h) => ({ ...h, purpose: await decryptField(h.purpose) })),
+    );
   });
 
 export const createHearing = createServerFn({ method: "POST" })
@@ -38,13 +41,13 @@ export const createHearing = createServerFn({ method: "POST" })
         court: data.court ?? null,
         hearing_date: data.hearingDate,
         hearing_time: data.hearingTime ?? null,
-        purpose: data.purpose ?? null,
+        purpose: await encryptField(data.purpose),
         created_by: context.userId,
       })
       .select("id, matter_title, court, hearing_date, hearing_time, purpose, status, created_at")
       .single();
     if (error) throw new Error(error.message);
-    return saved;
+    return { ...saved, purpose: data.purpose ?? null };
   });
 
 // All hearings for one matter, past and future — used by the Matter
@@ -70,7 +73,8 @@ export const listMatterHearings = createServerFn({ method: "GET" })
     const byId = new Map(
       [...(byIdRes.data ?? []), ...(byTitleRes.data ?? [])].map((h) => [h.id, h]),
     );
-    return [...byId.values()].sort((a, b) => a.hearing_date.localeCompare(b.hearing_date));
+    const merged = [...byId.values()].sort((a, b) => a.hearing_date.localeCompare(b.hearing_date));
+    return Promise.all(merged.map(async (h) => ({ ...h, purpose: await decryptField(h.purpose) })));
   });
 
 export const updateHearingStatus = createServerFn({ method: "POST" })
