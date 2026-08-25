@@ -5,7 +5,6 @@ import { GROUP_TONE, groupedDestinations } from "@/lib/navigation";
 
 const nav = [
   { to: "/security", label: "Security" },
-  { to: "/pricing", label: "Pricing" },
   { to: "/contact", label: "Contact" },
 ] as const;
 

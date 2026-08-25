@@ -1,8 +1,14 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { ArrowRight, Check } from "lucide-react";
 import { SiteHeader, SiteFooter } from "@/components/site/SiteChrome";
 
+// Pricing is being reworked into per-module selling rather than fixed
+// tiers — hidden for now (redirect, not deleted) so nobody sees numbers
+// that are about to change. Send interested visitors to a human instead.
 export const Route = createFileRoute("/pricing")({
+  beforeLoad: () => {
+    throw redirect({ to: "/contact" });
+  },
   head: () => ({
     meta: [
       { title: "Pricing — LexDiary" },
