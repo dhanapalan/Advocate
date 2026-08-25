@@ -33,7 +33,7 @@ const plans = [
   {
     id: "solo_basic",
     name: "Solo Basic",
-    basePrice: 499,
+    basePrice: 2999,
     summary: "One advocate, the full matter and diary workflow.",
     features: [
       "Up to 50 matters and 50 clients",
@@ -45,7 +45,7 @@ const plans = [
   {
     id: "solo_pro",
     name: "Solo Pro",
-    basePrice: 799,
+    basePrice: 3999,
     summary: "Adds document intake and client messaging automation.",
     features: [
       "Everything in Solo Basic",
@@ -58,11 +58,11 @@ const plans = [
   {
     id: "chamber",
     name: "Chamber",
-    basePrice: 999,
+    basePrice: 7999,
     summary: "For a chamber with juniors and a clerk — 2 seats included.",
     features: [
       "Everything in Solo Pro",
-      "Two users included, ₹499 per extra seat",
+      "Two users included, ₹1999 per extra seat",
       "Roles for owners, admins, juniors and clerks",
       "Unlimited matters and clients",
     ],

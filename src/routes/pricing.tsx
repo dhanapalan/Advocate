@@ -9,13 +9,13 @@ export const Route = createFileRoute("/pricing")({
       {
         name: "description",
         content:
-          "Start with a 15-day free trial — no card required. Solo plans from ₹499 a month, Chamber from ₹999 for two users with extra seats at ₹499.",
+          "Start with a 15-day free trial — no card required. Solo plans from ₹2999 a month, Chamber from ₹7999 for two users with extra seats at ₹1999.",
       },
       { property: "og:title", content: "Pricing — LexDiary" },
       {
         property: "og:description",
         content:
-          "Solo from ₹499/month, Solo Pro at ₹799 with OCR and WhatsApp, Chamber from ₹999 for two users.",
+          "Solo from ₹2999/month, Solo Pro at ₹3999 with OCR and WhatsApp, Chamber from ₹7999 for two users.",
       },
     ],
   }),
@@ -27,7 +27,7 @@ export const Route = createFileRoute("/pricing")({
 const plans = [
   {
     name: "Solo Basic",
-    price: "₹499",
+    price: "₹2999",
     cadence: "per month",
     summary: "For a solo advocate who wants the whole practice in one place.",
     features: [
@@ -41,7 +41,7 @@ const plans = [
   },
   {
     name: "Solo Pro",
-    price: "₹799",
+    price: "₹3999",
     cadence: "per month",
     summary: "The same practice, with document intake and client messaging automated.",
     features: [
@@ -56,12 +56,12 @@ const plans = [
   },
   {
     name: "Chamber",
-    price: "₹999",
+    price: "₹7999",
     cadence: "per month, 2 users included",
-    summary: "For a chamber with more than one advocate. Extra seats at ₹499 per user, per month.",
+    summary: "For a chamber with more than one advocate. Extra seats at ₹1999 per user, per month.",
     features: [
       "Everything in Solo Pro",
-      "Two users included, add seats at ₹499 each",
+      "Two users included, add seats at ₹1999 each",
       "Owner, admin and member roles per user",
       "Invite teammates and manage seats yourself",
       "Chamber-wide audit log",
@@ -137,9 +137,9 @@ function Pricing() {
         <div className="surface-panel mt-12 rounded p-7">
           <h2 className="font-display text-lg font-bold">How Chamber seats are counted</h2>
           <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground">
-            A Chamber subscription starts at ₹999 a month and covers two users. Each additional
-            teammate is ₹499 a month, added or removed from the Team screen by an owner or admin — a
-            chamber of four works out to ₹1,997 a month. Every seat is a full login with its own
+            A Chamber subscription starts at ₹7999 a month and covers two users. Each additional
+            teammate is ₹1999 a month, added or removed from the Team screen by an owner or admin —
+            a chamber of four works out to ₹11,997 a month. Every seat is a full login with its own
             role; pending invites hold a seat until they are accepted or revoked.
           </p>
         </div>

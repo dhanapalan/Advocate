@@ -13,12 +13,12 @@ const PLAN_NAMES: Record<PayablePlan, string> = {
   chamber: "Chamber",
 };
 const PLAN_BASE_PRICE: Record<PayablePlan, number> = {
-  solo_basic: 499,
-  solo_pro: 799,
-  chamber: 999,
+  solo_basic: 2999,
+  solo_pro: 3999,
+  chamber: 7999,
 };
 const CHAMBER_INCLUDED_SEATS = 2;
-const CHAMBER_EXTRA_SEAT_PRICE = 499;
+const CHAMBER_EXTRA_SEAT_PRICE = 1999;
 const GST_RATE = 0.18;
 // Annual bills for 10 months' worth — 2 months free relative to paying monthly.
 const ANNUAL_MONTHS_CHARGED = 10;
@@ -36,13 +36,14 @@ function invoiceHtml(input: {
   basePrice: number;
   seatCost: number;
   extraSeats: number;
+  extraSeatPrice: number;
   gst: number;
   total: number;
   periodEnd: string;
 }): string {
   const seatRow =
     input.extraSeats > 0
-      ? `<tr><td style="padding:6px 0;color:#5B5F72">${input.extraSeats} extra seat${input.extraSeats === 1 ? "" : "s"} &times; ${rupees(CHAMBER_EXTRA_SEAT_PRICE)}${input.cadence === "annual" ? ` &times; ${ANNUAL_MONTHS_CHARGED} months` : ""}</td><td style="padding:6px 0;text-align:right">${rupees(input.seatCost)}</td></tr>`
+      ? `<tr><td style="padding:6px 0;color:#5B5F72">${input.extraSeats} extra seat${input.extraSeats === 1 ? "" : "s"} &times; ${rupees(input.extraSeatPrice)}${input.cadence === "annual" ? ` &times; ${ANNUAL_MONTHS_CHARGED} months` : ""}</td><td style="padding:6px 0;text-align:right">${rupees(input.seatCost)}</td></tr>`
       : "";
   const planRow =
     input.cadence === "annual"
@@ -100,20 +101,32 @@ export const activateSubscription = createServerFn({ method: "POST" })
 
     const { data: existingLicense, error: existingLicenseError } = await context.supabase
       .from("licenses")
-      .select("seats, current_period_end")
+      .select("plan, seats, current_period_end, legacy_base_price_inr, legacy_extra_seat_price_inr")
       .eq("tenant_id", data.tenantId)
       .single();
     if (existingLicenseError || !existingLicense) throw new Error("License not found.");
 
     const planName = PLAN_NAMES[data.plan];
-    const basePrice = PLAN_BASE_PRICE[data.plan];
+    // A grandfathered price only applies while renewing the SAME plan it was
+    // locked to — moving this tenant to a different plan tier is an explicit
+    // renegotiation, not a renewal, so it falls back to the standard price
+    // for that tier even though the license row's override columns are
+    // still set. (Clear those columns directly if the tenant is moved off
+    // Chamber for good.)
+    const stayingOnSamePlan = existingLicense.plan === data.plan;
+    const basePrice =
+      (stayingOnSamePlan ? existingLicense.legacy_base_price_inr : null) ??
+      PLAN_BASE_PRICE[data.plan];
+    const extraSeatPrice =
+      (stayingOnSamePlan ? existingLicense.legacy_extra_seat_price_inr : null) ??
+      CHAMBER_EXTRA_SEAT_PRICE;
 
     const extraSeats =
       data.plan === "chamber"
         ? Math.max((existingLicense.seats ?? 0) - CHAMBER_INCLUDED_SEATS, 0)
         : 0;
     const periodMonths = data.cadence === "annual" ? ANNUAL_MONTHS_CHARGED : 1;
-    const seatCost = extraSeats * CHAMBER_EXTRA_SEAT_PRICE * periodMonths;
+    const seatCost = extraSeats * extraSeatPrice * periodMonths;
     const subtotal = basePrice * (data.cadence === "annual" ? ANNUAL_MONTHS_CHARGED : 1) + seatCost;
     const gst = Math.round(subtotal * GST_RATE);
     const total = subtotal + gst;
@@ -184,6 +197,7 @@ export const activateSubscription = createServerFn({ method: "POST" })
           basePrice: basePrice * (data.cadence === "annual" ? ANNUAL_MONTHS_CHARGED : 1),
           seatCost,
           extraSeats,
+          extraSeatPrice,
           gst,
           total,
           periodEnd: periodEnd.toLocaleDateString("en-IN", {

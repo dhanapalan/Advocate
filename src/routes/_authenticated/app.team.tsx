@@ -343,8 +343,8 @@ function Team() {
               <h3 className="font-display text-sm font-bold">Add a teammate</h3>
               <p className="mt-2 text-sm text-muted-foreground">
                 Your {planLabel[ent?.plan ?? "trial"] ?? ent?.plan} plan covers a single advocate.
-                The Chamber plan starts at {rupees(999)} a month for two users, with extra seats at{" "}
-                {rupees(499)} each — ask the platform admin to move your chamber onto it and this
+                The Chamber plan starts at {rupees(7999)} a month for two users, with extra seats at{" "}
+                {rupees(1999)} each — ask the platform admin to move your chamber onto it and this
                 screen will let you invite and manage teammates here.
               </p>
             </div>
@@ -393,7 +393,7 @@ function Team() {
                   <p className="w-full text-xs text-muted-foreground">
                     {seatsFree > 0
                       ? `${seatsFree} of ${ent.seats} seats free. A pending invite holds a seat until it is accepted or revoked.`
-                      : `All ${ent.seats} seats are in use — add a seat at ${rupees(ent.extra_seat_price_inr ?? 499)} a month to invite another teammate.`}
+                      : `All ${ent.seats} seats are in use — add a seat at ${rupees(ent.extra_seat_price_inr ?? 1999)} a month to invite another teammate.`}
                   </p>
                 ) : null}
               </form>
@@ -536,7 +536,7 @@ function Team() {
                     </div>
                     <p className="mt-2 text-xs text-muted-foreground">
                       Each seat beyond the {ent.seats_included} included costs{" "}
-                      {rupees(ent.extra_seat_price_inr ?? 499)} a month. Seats in use cannot be
+                      {rupees(ent.extra_seat_price_inr ?? 1999)} a month. Seats in use cannot be
                       removed — remove the member or revoke the invite first.
                     </p>
                   </div>
