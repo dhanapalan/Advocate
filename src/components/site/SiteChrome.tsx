@@ -4,6 +4,7 @@ import { ChevronDown, Scale } from "lucide-react";
 import { GROUP_TONE, groupedDestinations } from "@/lib/navigation";
 
 const nav = [
+  { to: "/security", label: "Security" },
   { to: "/pricing", label: "Pricing" },
   { to: "/contact", label: "Contact" },
 ] as const;
@@ -152,6 +153,9 @@ export function SiteFooter() {
         <p>© {new Date().getFullYear()} LexDiary — practice management for Indian advocates.</p>
         <p className="flex items-center gap-4">
           <span>Data hosted in Mumbai, India</span>
+          <Link to="/security" className="underline-offset-4 hover:underline">
+            Security
+          </Link>
           <Link to="/privacy" className="underline-offset-4 hover:underline">
             Privacy notice
           </Link>

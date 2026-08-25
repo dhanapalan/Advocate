@@ -132,8 +132,7 @@ function Landing() {
               <p className="mt-6 max-w-xl text-base leading-relaxed text-primary-foreground/80">
                 LexDiary brings matters, your hearing diary, documents, AI-assisted drafting,
                 clients and billing together in one platform, purpose-built for how litigation is
-                practised in Indian courts — accessible from your phone, wherever the day takes
-                you.
+                practised in Indian courts — accessible from your phone, wherever the day takes you.
               </p>
               <div className="mt-9 flex flex-wrap gap-4">
                 <Link
@@ -231,6 +230,12 @@ function Landing() {
               <div>
                 <p className="text-eyebrow text-accent">Compliance by design</p>
                 <h2 className="mt-4 text-3xl font-bold">Privileged data, treated as privileged</h2>
+                <Link
+                  to="/security"
+                  className="mt-4 inline-flex items-center text-sm font-medium text-accent underline-offset-4 hover:underline"
+                >
+                  Read the full security page →
+                </Link>
               </div>
               <ul className="space-y-6">
                 {[
@@ -249,6 +254,14 @@ function Landing() {
                   {
                     head: "Bar Council ethics respected",
                     body: "No client solicitation features, no public advertising of results, and confidentiality controls on client-facing sharing.",
+                  },
+                  {
+                    head: "Encrypted, India-hosted",
+                    body: "Data is stored in India (Mumbai region). All connections are encrypted in transit, and passwords are never stored in plain text.",
+                  },
+                  {
+                    head: "Security-tested, zero open critical findings",
+                    body: "A structured internal security review, live-tested against a running instance across authentication, tenant isolation, IDOR/RBAC, AI cross-tenant leakage, secrets handling and more — every release-blocking category currently clean.",
                   },
                 ].map((item) => (
                   <li key={item.head} className="border-l-2 border-accent pl-5">

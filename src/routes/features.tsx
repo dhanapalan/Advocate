@@ -90,7 +90,8 @@ const modules = [
   {
     icon: Mic,
     name: "Capturing notes without typing",
-    manual: "Typing up notes from memory after a hearing or client call, or not getting to it at all.",
+    manual:
+      "Typing up notes from memory after a hearing or client call, or not getting to it at all.",
     automatic:
       "Dictate on the way out of court — transcribed, reviewable and ready to print or save to the matter, without touching a keyboard.",
     tone: "sapphire",
@@ -128,7 +129,7 @@ const modules = [
     manual:
       "No real record — if a document goes missing or a hearing outcome changes, it's someone's word.",
     automatic:
-      "Every access, download and change is logged to an in-app audit log any owner or admin can search, with annual independent penetration testing and a 99.5% uptime target.",
+      "Every access, download and change is logged to an in-app audit log any owner or admin can search, backed by a structured internal security review covering authentication, tenant isolation, RBAC and AI cross-tenant leakage.",
     tone: "emerald",
   },
   {
