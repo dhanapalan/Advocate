@@ -6,6 +6,7 @@ import {
   extractJson,
   LEGAL_SYSTEM_PROMPT,
 } from "../_shared/ai.ts";
+import { requireModule } from "../_shared/modules.ts";
 
 // Takes the ALREADY-AGGREGATED, deterministic Court Morning Brief data (see
 // src/lib/morning-brief.functions.ts) and asks the model for a short
@@ -92,6 +93,15 @@ Deno.serve(async (req) => {
       "AI prep notes are turned off for this chamber by your workspace administrator.",
       403,
     );
+  }
+
+  // Commercial gate, distinct from the governance kill-switch above: the
+  // Morning Brief is part of the matter_intelligence module (same as
+  // ai-matter-summary and ai-generate-briefing).
+  try {
+    await requireModule(auth.supabase, userId, "matter_intelligence");
+  } catch (cause) {
+    return errorResponse(req, cause instanceof Error ? cause.message : "Module check failed.", 403);
   }
 
   try {

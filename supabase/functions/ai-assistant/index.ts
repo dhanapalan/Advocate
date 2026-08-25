@@ -1,6 +1,7 @@
 import { handleOptions, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { authedClient, requireUserId } from "../_shared/auth.ts";
 import { chatComplete, enforceUsageQuota, LEGAL_SYSTEM_PROMPT } from "../_shared/ai.ts";
+import { requireModule } from "../_shared/modules.ts";
 
 Deno.serve(async (req) => {
   const preflight = handleOptions(req);
@@ -11,6 +12,12 @@ Deno.serve(async (req) => {
   const userId = await requireUserId(auth.supabase);
   if (!userId) return errorResponse(req, "Unauthorized", 401);
   const { supabase } = auth;
+
+  try {
+    await requireModule(supabase, userId, "ai_assistant");
+  } catch (cause) {
+    return errorResponse(req, cause instanceof Error ? cause.message : "Module check failed.", 403);
+  }
 
   try {
     await enforceUsageQuota(supabase);

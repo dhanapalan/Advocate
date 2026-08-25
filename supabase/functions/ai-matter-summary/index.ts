@@ -6,6 +6,7 @@ import {
   extractJson,
   LEGAL_SYSTEM_PROMPT,
 } from "../_shared/ai.ts";
+import { requireModule } from "../_shared/modules.ts";
 
 // K3 — Matter Intelligence. Takes the ALREADY-AGGREGATED MatterContext facts
 // (see src/lib/matter-context.functions.ts) and asks the model for a short,
@@ -104,6 +105,15 @@ Deno.serve(async (req) => {
       "AI matter summaries are turned off for this chamber by your workspace administrator.",
       403,
     );
+  }
+
+  // Commercial gate, distinct from the governance kill-switch above: matter
+  // summaries are part of the matter_intelligence module (same as
+  // ai-morning-brief and ai-generate-briefing).
+  try {
+    await requireModule(auth.supabase, userId, "matter_intelligence");
+  } catch (cause) {
+    return errorResponse(req, cause instanceof Error ? cause.message : "Module check failed.", 403);
   }
 
   try {

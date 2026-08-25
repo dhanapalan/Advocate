@@ -1,6 +1,7 @@
 import { handleOptions, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { authedClient, requireUserId } from "../_shared/auth.ts";
 import { enforceUsageQuota, extractTextFromImage } from "../_shared/ai.ts";
+import { requireModule } from "../_shared/modules.ts";
 
 function decodeBase64(base64: string): Uint8Array {
   const binary = atob(base64);
@@ -18,11 +19,14 @@ Deno.serve(async (req) => {
   const userId = await requireUserId(auth.supabase);
   if (!userId) return errorResponse(req, "Unauthorized", 401);
 
-  // OCR is a Solo Pro / Chamber feature. Gate it here, not only in the UI:
-  // this endpoint is directly callable with any valid user token.
-  const { error: featureError } = await auth.supabase.rpc("assert_feature", { p_feature: "ocr" });
-  if (featureError) {
-    return errorResponse(req, featureError.message || "Your plan does not include OCR.", 403);
+  // OCR is now its own purchasable module rather than tied to a plan tier
+  // (was gated via assert_feature('ocr')/plan_feature — superseded). Gate
+  // it here, not only in the UI: this endpoint is directly callable with
+  // any valid user token.
+  try {
+    await requireModule(auth.supabase, userId, "ocr");
+  } catch (cause) {
+    return errorResponse(req, cause instanceof Error ? cause.message : "Module check failed.", 403);
   }
 
   try {

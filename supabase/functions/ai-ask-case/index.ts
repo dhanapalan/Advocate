@@ -6,6 +6,7 @@ import {
   extractJson,
   LEGAL_SYSTEM_PROMPT,
 } from "../_shared/ai.ts";
+import { requireModule } from "../_shared/modules.ts";
 
 // K4 — Ask My Case. Matter-grounded Q&A with structured, non-fabricatable
 // citations. Reuses K3's MatterContextService (the client calls
@@ -289,6 +290,16 @@ Deno.serve(async (req) => {
       "AI Case Intelligence is currently unavailable for this chamber.",
       403,
     );
+  }
+
+  // Commercial gate, distinct from the governance kill-switch above: Ask My
+  // Case is part of the ai_assistant module (same as the general /app
+  // assistant) — a paid-plan tenant needs it purchased, not just left
+  // enabled by the platform admin.
+  try {
+    await requireModule(supabase, userId, "ai_assistant");
+  } catch (cause) {
+    return errorResponse(req, cause instanceof Error ? cause.message : "Module check failed.", 403);
   }
 
   try {

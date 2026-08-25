@@ -1,6 +1,7 @@
 import { handleOptions, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { authedClient, requireUserId } from "../_shared/auth.ts";
 import { enforceUsageQuota, transcribeAudio } from "../_shared/ai.ts";
+import { requireModule } from "../_shared/modules.ts";
 
 function decodeBase64(base64: string): Uint8Array {
   const binary = atob(base64);
@@ -17,6 +18,12 @@ Deno.serve(async (req) => {
   if (!auth) return errorResponse(req, "Unauthorized", 401);
   const userId = await requireUserId(auth.supabase);
   if (!userId) return errorResponse(req, "Unauthorized", 401);
+
+  try {
+    await requireModule(auth.supabase, userId, "dictation");
+  } catch (cause) {
+    return errorResponse(req, cause instanceof Error ? cause.message : "Module check failed.", 403);
+  }
 
   try {
     await enforceUsageQuota(auth.supabase);

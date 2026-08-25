@@ -6,6 +6,7 @@ import {
   extractJson,
   LEGAL_SYSTEM_PROMPT,
 } from "../_shared/ai.ts";
+import { requireModule } from "../_shared/modules.ts";
 
 Deno.serve(async (req) => {
   const preflight = handleOptions(req);
@@ -16,6 +17,14 @@ Deno.serve(async (req) => {
   const userId = await requireUserId(auth.supabase);
   if (!userId) return errorResponse(req, "Unauthorized", 401);
   const { supabase } = auth;
+
+  // Part of the OCR document-intake pipeline (scan → OCR → this AI review
+  // step) — same module as ocr-extract, not its own separate purchase.
+  try {
+    await requireModule(supabase, userId, "ocr");
+  } catch (cause) {
+    return errorResponse(req, cause instanceof Error ? cause.message : "Module check failed.", 403);
+  }
 
   try {
     await enforceUsageQuota(supabase);

@@ -1,8 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { MessageCircle } from "lucide-react";
+import { MessageCircle, ReceiptIndianRupee } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { DataTable } from "@/components/app/primitives";
+
+function rupees(value: number): string {
+  return `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
+}
 
 export const Route = createFileRoute("/_admin/admin/settings/integrations")({
   head: () => ({ meta: [{ title: "Integrations — Platform admin" }] }),
@@ -15,7 +19,23 @@ type Integrations = {
   cause_list_enabled?: boolean;
   ai_matter_intelligence_enabled?: boolean;
   ai_case_intelligence_enabled?: boolean;
+  ai_drafting_enabled?: boolean;
+  ai_assistant_enabled?: boolean;
+  matter_intelligence_enabled?: boolean;
+  ocr_enabled?: boolean;
+  dictation_enabled?: boolean;
 };
+
+// Prices aren't finalized yet — shown here only as a placeholder so it's
+// obvious at a glance which ones still need a real number before a chamber
+// can actually be sold one of these. Update once real prices are set.
+const MODULES: { key: keyof Integrations; label: string; priceInr: number | null }[] = [
+  { key: "ai_drafting_enabled", label: "AI Drafting", priceInr: null },
+  { key: "ai_assistant_enabled", label: "AI Case Assistant", priceInr: null },
+  { key: "matter_intelligence_enabled", label: "Matter Intelligence", priceInr: null },
+  { key: "ocr_enabled", label: "OCR Document Intake", priceInr: null },
+  { key: "dictation_enabled", label: "Dictation", priceInr: null },
+];
 type TenantIntegrations = {
   id: string;
   name: string;
@@ -221,6 +241,63 @@ function AdminIntegrations() {
                       : "Disabled"}
                   </label>
                 </td>
+              </tr>
+            ))}
+          </DataTable>
+        )}
+      </div>
+
+      <div className="mt-10 flex items-center gap-2">
+        <ReceiptIndianRupee className="size-5 text-primary" />
+        <h2 className="font-display text-lg font-bold">Purchased modules</h2>
+      </div>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Opposite default from the toggles above: these are OFF unless a chamber has actually bought
+        the module (a trial tenant gets every module unlocked to evaluate, so this table only
+        matters once a chamber is on a paid plan). Enforced server-side in each module's edge
+        functions via requireModule() — flipping a switch off here refuses the underlying AI call
+        directly, not just the UI button.
+      </p>
+      <p className="mt-2 rounded border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning-foreground">
+        Prices shown are placeholders — real per-module pricing hasn't been set yet. Don't sell a
+        module off the number shown here until it's updated.
+      </p>
+
+      <div className="mt-4">
+        {loading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No tenants yet.</p>
+        ) : (
+          <DataTable headers={["Tenant", ...MODULES.map((m) => m.label)]}>
+            {rows.map((row) => (
+              <tr key={row.id} className="hover:bg-secondary/40">
+                <td className="px-4 py-3 font-medium">{row.name}</td>
+                {MODULES.map((module) => {
+                  const enabled = row.integrations?.[module.key] ?? false;
+                  return (
+                    <td key={module.key} className="px-4 py-3">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={enabled}
+                          onChange={(event) =>
+                            void setIntegration(row.id, module.key, event.target.checked)
+                          }
+                          className="size-4 rounded border-input"
+                        />
+                        <span className={enabled ? "" : "text-muted-foreground"}>
+                          {enabled ? "Purchased" : "Not purchased"}
+                        </span>
+                      </label>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {module.priceInr === null
+                          ? "price not set"
+                          : `${rupees(module.priceInr)}/mo`}
+                      </p>
+                    </td>
+                  );
+                })}
               </tr>
             ))}
           </DataTable>
