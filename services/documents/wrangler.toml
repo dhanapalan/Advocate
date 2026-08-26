@@ -1,0 +1,17 @@
+name = "lexdiary-documents"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Same public values as the main app's wrangler.toml — not secrets, safe to
+# duplicate. No FIELD_ENCRYPTION_KEY here: neither function this service
+# owns (listDocumentAnalyses, updateDocumentAnalysisStatus) touches an
+# encrypted column — ai_documents.raw_text (the one encrypted field on this
+# table) is only read by getMatterDocumentTexts, which stays in the main app
+# as a direct-SQL aggregator read (see the plan's "reads stay direct-SQL"
+# design). The actual AI-calling work (OCR intake, document analysis) stays
+# on Supabase Edge Functions (ocr-extract, ai-analyze-document) — this
+# service owns the reviewed-document CRUD only, not the AI Gateway secret.
+[vars]
+SUPABASE_URL = "https://cjcjfdwdlsdgyvshuncn.supabase.co"
+SUPABASE_PUBLISHABLE_KEY = "sb_publishable_DnB_8STNU8FST_sCkRAM4w_K9c8A4Ft"

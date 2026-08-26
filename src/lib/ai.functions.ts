@@ -60,37 +60,7 @@ export const deleteConversation = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const listDocumentAnalyses = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    await requireModule(context.supabase, context.userId, "documents");
-    const { data, error } = await context.supabase
-      .from("ai_documents")
-      .select(
-        "id, name, matter_ref, doc_kind, summary, parties, key_dates, tags, risk_notes, status, created_at",
-      )
-      .order("created_at", { ascending: false })
-      .limit(20);
-    if (error) throw new Error(error.message);
-    return data ?? [];
-  });
-
 const REVIEW_STATUS = z.enum(["pending_review", "approved", "rejected"]);
-
-export const updateDocumentAnalysisStatus = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) =>
-    z.object({ id: z.string().uuid(), status: REVIEW_STATUS }).parse(data),
-  )
-  .handler(async ({ data, context }) => {
-    await requireModule(context.supabase, context.userId, "documents");
-    const { error } = await context.supabase
-      .from("ai_documents")
-      .update({ status: data.status })
-      .eq("id", data.id);
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });
 
 export const listDrafts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

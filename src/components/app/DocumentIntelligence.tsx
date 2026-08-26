@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { Link } from "@tanstack/react-router";
 import { Brain, Camera, Check, Loader2, PenLine, Upload, X } from "lucide-react";
 import { Tag, type Tone } from "@/components/app/primitives";
-import { listDocumentAnalyses, updateDocumentAnalysisStatus } from "@/lib/ai.functions";
 import { analyzeDocument, ocrExtract } from "@/lib/edge-functions";
-// Calls the Matters microservice (services/matters/) directly — not a
-// TanStack server function, so no useServerFn wrapping.
+// Calls the Matters/Documents microservices (services/matters/,
+// services/documents/) directly — not TanStack server functions, so no
+// useServerFn wrapping.
 import { listMatters } from "@/lib/matters-service";
+import { listDocumentAnalyses, updateDocumentAnalysisStatus } from "@/lib/documents-service";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -61,9 +61,9 @@ function asKeyDates(value: unknown): { date?: string; what?: string }[] {
 }
 
 export function DocumentIntelligence() {
-  const load = useServerFn(listDocumentAnalyses);
+  const load = listDocumentAnalyses;
   const loadMatters = listMatters;
-  const setReviewStatus = useServerFn(updateDocumentAnalysisStatus);
+  const setReviewStatus = updateDocumentAnalysisStatus;
 
   const [items, setItems] = useState<Analysis[]>([]);
   const [matters, setMatters] = useState<MatterOption[]>([]);
@@ -91,7 +91,7 @@ export function DocumentIntelligence() {
   async function reviewItem(id: string, status: "approved" | "rejected") {
     setItems((prev) => prev.map((item) => (item.id === id ? { ...item, status } : item)));
     try {
-      await setReviewStatus({ data: { id, status } });
+      await setReviewStatus({ id, status });
     } catch {
       void load()
         .then((rows) => setItems(rows as Analysis[]))
