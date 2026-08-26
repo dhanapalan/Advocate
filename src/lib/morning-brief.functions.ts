@@ -183,8 +183,8 @@ export const getMorningBrief = createServerFn({ method: "GET" })
         // Most recent hearing strictly before today for each of today's matter
         // titles — "previous hearing" is matched by matter_title, since
         // hearings.matter_id isn't populated by the create-hearing flow today
-        // (see hearing-conflicts.ts / diary.functions.ts comments) and title
-        // is the only reliable join key actually in use.
+        // (see hearing-conflicts.ts and services/diary/src/hearings.ts) and
+        // title is the only reliable join key actually in use.
         context.supabase
           .from("hearings")
           .select("matter_title, hearing_date, hearing_time, status, purpose")

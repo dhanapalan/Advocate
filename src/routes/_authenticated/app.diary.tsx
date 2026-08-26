@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Plus } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { Tag, type Tone } from "@/components/app/primitives";
-import { createHearing, listHearings, updateHearingStatus } from "@/lib/diary.functions";
+// Calls the Diary microservice (services/diary/) directly from the
+// browser — not a TanStack server function, so no useServerFn wrapping.
+import { createHearing, listHearings, updateHearingStatus } from "@/lib/diary-service";
 import { findClashKeys, isClashing } from "@/lib/hearing-conflicts";
 import { todayIsoIST } from "@/lib/date-ist";
 
@@ -50,9 +51,9 @@ function todayIso() {
 }
 
 function Diary() {
-  const loadHearings = useServerFn(listHearings);
-  const addHearing = useServerFn(createHearing);
-  const setStatus = useServerFn(updateHearingStatus);
+  const loadHearings = listHearings;
+  const addHearing = createHearing;
+  const setStatus = updateHearingStatus;
 
   const [hearings, setHearings] = useState<Hearing[]>([]);
   const [loading, setLoading] = useState(true);
@@ -91,13 +92,11 @@ function Diary() {
     setError(null);
     try {
       await addHearing({
-        data: {
-          matterTitle: form.matterTitle.trim(),
-          court: form.court.trim() || undefined,
-          hearingDate: form.hearingDate,
-          hearingTime: form.hearingTime || undefined,
-          purpose: form.purpose.trim() || undefined,
-        },
+        matterTitle: form.matterTitle.trim(),
+        court: form.court.trim() || undefined,
+        hearingDate: form.hearingDate,
+        hearingTime: form.hearingTime || undefined,
+        purpose: form.purpose.trim() || undefined,
       });
       setForm({
         matterTitle: "",
@@ -118,10 +117,8 @@ function Diary() {
     setError(null);
     try {
       await setStatus({
-        data: {
-          id,
-          status: status as "confirmed" | "cause_list_awaited" | "adjourned" | "completed",
-        },
+        id,
+        status: status as "confirmed" | "cause_list_awaited" | "adjourned" | "completed",
       });
       await reload();
     } catch (cause) {

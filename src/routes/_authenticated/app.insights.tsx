@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { Markdown } from "@/components/app/Markdown";
 import { generateBriefing } from "@/lib/edge-functions";
-import { listHearings } from "@/lib/diary.functions";
+// Calls the Diary microservice (services/diary/) directly — not a
+// TanStack server function, so no useServerFn wrapping.
+import { listHearings } from "@/lib/diary-service";
 // Calls the Matters microservice (services/matters/) directly — not a
 // TanStack server function, so no useServerFn wrapping.
 import { listMatters } from "@/lib/matters-service";
@@ -92,7 +93,7 @@ function buildContext(matters: Matter[], hearings: Hearing[]) {
 
 function Insights() {
   const loadMatters = listMatters;
-  const loadHearings = useServerFn(listHearings);
+  const loadHearings = listHearings;
   const [matters, setMatters] = useState<Matter[]>([]);
   const [hearings, setHearings] = useState<Hearing[]>([]);
   const [dataLoaded, setDataLoaded] = useState(false);

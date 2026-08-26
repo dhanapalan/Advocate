@@ -1,12 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { AlertTriangle, Check, ChevronDown, History, Loader2, Plus, Upload, X } from "lucide-react";
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { StatCard, Tag, type Tone } from "@/components/app/primitives";
-// Calls the Matters microservice (services/matters/) directly — not a
-// TanStack server function, so no useServerFn wrapping.
+// Calls the Matters/Diary microservices (services/matters/,
+// services/diary/) directly — not TanStack server functions, so no
+// useServerFn wrapping.
 import { listMatters } from "@/lib/matters-service";
 import { todayIsoIST } from "@/lib/date-ist";
 import {
@@ -19,7 +19,7 @@ import {
   matchMatterManually,
   rejectCauseListMatch,
   setCauseListSourceEnabled,
-} from "@/lib/cause-list.functions";
+} from "@/lib/diary-service";
 
 export const Route = createFileRoute("/_authenticated/app/cause-list")({
   head: () => ({
@@ -82,16 +82,16 @@ function todayIso() {
 }
 
 function CauseListIntelligence() {
-  const loadSources = useServerFn(listCauseListSources);
-  const addSource = useServerFn(createCauseListSource);
-  const toggleSource = useServerFn(setCauseListSourceEnabled);
-  const loadEntries = useServerFn(listCauseListEntries);
+  const loadSources = listCauseListSources;
+  const addSource = createCauseListSource;
+  const toggleSource = setCauseListSourceEnabled;
+  const loadEntries = listCauseListEntries;
   const loadMatters = listMatters;
-  const runIngest = useServerFn(ingestCauseList);
-  const doMatch = useServerFn(matchMatterManually);
-  const doReject = useServerFn(rejectCauseListMatch);
-  const loadHistory = useServerFn(listCauseListChangeHistory);
-  const loadFeatureStatus = useServerFn(getCauseListFeatureEnabled);
+  const runIngest = ingestCauseList;
+  const doMatch = matchMatterManually;
+  const doReject = rejectCauseListMatch;
+  const loadHistory = listCauseListChangeHistory;
+  const loadFeatureStatus = getCauseListFeatureEnabled;
 
   const [featureEnabled, setFeatureEnabled] = useState(true);
   const [sources, setSources] = useState<Source[]>([]);
@@ -146,7 +146,7 @@ function CauseListIntelligence() {
     setLoadingEntries(true);
     setError(null);
     try {
-      const result = await loadEntries({ data: { date: listDate } });
+      const result = await loadEntries({ date: listDate });
       setEntries(result.entries as Entry[]);
       setSummary(result.summary);
     } catch (cause) {
@@ -182,11 +182,9 @@ function CauseListIntelligence() {
     setCreatingSource(true);
     try {
       await addSource({
-        data: {
-          court: newSource.court.trim(),
-          bench: newSource.bench.trim() || undefined,
-          listType: newSource.listType,
-        },
+        court: newSource.court.trim(),
+        bench: newSource.bench.trim() || undefined,
+        listType: newSource.listType,
       });
       setNewSource({ court: "", bench: "", listType: "daily" });
       setShowAddSource(false);
@@ -200,7 +198,7 @@ function CauseListIntelligence() {
 
   async function handleToggleSource(id: string, enabled: boolean) {
     try {
-      await toggleSource({ data: { id, enabled } });
+      await toggleSource({ id, enabled });
       await reloadSources();
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "Failed to update the source.");
@@ -211,9 +209,7 @@ function CauseListIntelligence() {
     if (!importSourceId || !pastedText.trim()) return;
     setImporting(true);
     try {
-      const result = await runIngest({
-        data: { sourceId: importSourceId, listDate, pastedText },
-      });
+      const result = await runIngest({ sourceId: importSourceId, listDate, pastedText });
       const bits = [
         `${result.newCount} new`,
         `${result.changedCount} changed`,
@@ -239,7 +235,8 @@ function CauseListIntelligence() {
     setHistoryLoading(true);
     try {
       const rows = await loadHistory({
-        data: { sourceId: entry.sourceId, sourceReference: entry.sourceReference },
+        sourceId: entry.sourceId,
+        sourceReference: entry.sourceReference,
       });
       setHistoryRows(rows);
     } catch {
@@ -253,7 +250,7 @@ function CauseListIntelligence() {
     if (!entry.match || !matterChoice) return;
     setMatching(true);
     try {
-      await doMatch({ data: { matchId: entry.match.id, matterId: matterChoice } });
+      await doMatch({ matchId: entry.match.id, matterId: matterChoice });
       toast.success("Matched to matter.");
       setMatterPickerFor(null);
       setMatterChoice("");
@@ -268,7 +265,7 @@ function CauseListIntelligence() {
   async function handleReject(entry: Entry) {
     if (!entry.match) return;
     try {
-      await doReject({ data: { matchId: entry.match.id } });
+      await doReject({ matchId: entry.match.id });
       await reloadEntries();
     } catch (cause) {
       toast.error(cause instanceof Error ? cause.message : "Could not update this listing.");
