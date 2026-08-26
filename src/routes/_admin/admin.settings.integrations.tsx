@@ -26,15 +26,17 @@ type Integrations = {
   dictation_enabled?: boolean;
 };
 
-// Prices aren't finalized yet — shown here only as a placeholder so it's
-// obvious at a glance which ones still need a real number before a chamber
-// can actually be sold one of these. Update once real prices are set.
-const MODULES: { key: keyof Integrations; label: string; priceInr: number | null }[] = [
-  { key: "ai_drafting_enabled", label: "AI Drafting", priceInr: null },
-  { key: "ai_assistant_enabled", label: "AI Case Assistant", priceInr: null },
-  { key: "matter_intelligence_enabled", label: "Matter Intelligence", priceInr: null },
-  { key: "ocr_enabled", label: "OCR Document Intake", priceInr: null },
-  { key: "dictation_enabled", label: "Dictation", priceInr: null },
+// Mirrors module_price_inr() in the database (supabase/migrations/
+// 20260826100000_module_pricing.sql) — PLACEHOLDER pricing (Rs 499 across
+// the board, flat per tenant regardless of seats), explicitly provisional
+// per user decision: ship the calculation now, set real prices later.
+// Update both together.
+const MODULES: { key: keyof Integrations; label: string; priceInr: number }[] = [
+  { key: "ai_drafting_enabled", label: "AI Drafting", priceInr: 499 },
+  { key: "ai_assistant_enabled", label: "AI Case Assistant", priceInr: 499 },
+  { key: "matter_intelligence_enabled", label: "Matter Intelligence", priceInr: 499 },
+  { key: "ocr_enabled", label: "OCR Document Intake", priceInr: 499 },
+  { key: "dictation_enabled", label: "Dictation", priceInr: 499 },
 ];
 type TenantIntegrations = {
   id: string;
@@ -259,8 +261,10 @@ function AdminIntegrations() {
         directly, not just the UI button.
       </p>
       <p className="mt-2 rounded border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning-foreground">
-        Prices shown are placeholders — real per-module pricing hasn't been set yet. Don't sell a
-        module off the number shown here until it's updated.
+        Prices shown (₹499/month each) are placeholders, not final pricing — the calculation
+        mechanism is real and live (it drives the chamber's actual Billing summary and any invoice
+        generated from the Tenants page), but update these numbers before relying on them for real
+        billing.
       </p>
 
       <div className="mt-4">
@@ -269,37 +273,43 @@ function AdminIntegrations() {
         ) : rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No tenants yet.</p>
         ) : (
-          <DataTable headers={["Tenant", ...MODULES.map((m) => m.label)]}>
-            {rows.map((row) => (
-              <tr key={row.id} className="hover:bg-secondary/40">
-                <td className="px-4 py-3 font-medium">{row.name}</td>
-                {MODULES.map((module) => {
-                  const enabled = row.integrations?.[module.key] ?? false;
-                  return (
-                    <td key={module.key} className="px-4 py-3">
-                      <label className="flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={enabled}
-                          onChange={(event) =>
-                            void setIntegration(row.id, module.key, event.target.checked)
-                          }
-                          className="size-4 rounded border-input"
-                        />
-                        <span className={enabled ? "" : "text-muted-foreground"}>
-                          {enabled ? "Purchased" : "Not purchased"}
-                        </span>
-                      </label>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {module.priceInr === null
-                          ? "price not set"
-                          : `${rupees(module.priceInr)}/mo`}
-                      </p>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
+          <DataTable headers={["Tenant", ...MODULES.map((m) => m.label), "Modules total"]}>
+            {rows.map((row) => {
+              const purchasedModules = MODULES.filter((module) => row.integrations?.[module.key]);
+              const modulesTotal = purchasedModules.reduce((sum, m) => sum + m.priceInr, 0);
+              return (
+                <tr key={row.id} className="hover:bg-secondary/40">
+                  <td className="px-4 py-3 font-medium">{row.name}</td>
+                  {MODULES.map((module) => {
+                    const enabled = row.integrations?.[module.key] ?? false;
+                    return (
+                      <td key={module.key} className="px-4 py-3">
+                        <label className="flex items-center gap-2 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={enabled}
+                            onChange={(event) =>
+                              void setIntegration(row.id, module.key, event.target.checked)
+                            }
+                            className="size-4 rounded border-input"
+                          />
+                          <span className={enabled ? "" : "text-muted-foreground"}>
+                            {enabled ? "Purchased" : "Not purchased"}
+                          </span>
+                        </label>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {rupees(module.priceInr)}/mo
+                        </p>
+                      </td>
+                    );
+                  })}
+                  <td className="px-4 py-3">
+                    <span className="font-display font-bold">{rupees(modulesTotal)}</span>
+                    <p className="text-xs text-muted-foreground">/month, added to base plan</p>
+                  </td>
+                </tr>
+              );
+            })}
           </DataTable>
         )}
       </div>

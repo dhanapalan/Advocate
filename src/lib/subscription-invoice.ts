@@ -19,6 +19,23 @@ const PLAN_BASE_PRICE: Record<PayablePlan, number> = {
 };
 const CHAMBER_INCLUDED_SEATS = 2;
 const CHAMBER_EXTRA_SEAT_PRICE = 1999;
+// Mirrors module_price_inr() in the database (supabase/migrations/
+// 20260826100000_module_pricing.sql) — PLACEHOLDER pricing (Rs 499 across
+// the board), flat per tenant regardless of seats. Update both together.
+const MODULE_NAMES: Record<string, string> = {
+  ai_drafting_enabled: "AI Drafting",
+  ai_assistant_enabled: "AI Case Assistant",
+  matter_intelligence_enabled: "Matter Intelligence",
+  ocr_enabled: "OCR Document Intake",
+  dictation_enabled: "Dictation",
+};
+const MODULE_PRICE_INR: Record<string, number> = {
+  ai_drafting_enabled: 499,
+  ai_assistant_enabled: 499,
+  matter_intelligence_enabled: 499,
+  ocr_enabled: 499,
+  dictation_enabled: 499,
+};
 const GST_RATE = 0.18;
 // Annual bills for 10 months' worth — 2 months free relative to paying monthly.
 const ANNUAL_MONTHS_CHARGED = 10;
@@ -37,6 +54,7 @@ function invoiceHtml(input: {
   seatCost: number;
   extraSeats: number;
   extraSeatPrice: number;
+  moduleLines: { name: string; cost: number }[];
   gst: number;
   total: number;
   periodEnd: string;
@@ -45,6 +63,12 @@ function invoiceHtml(input: {
     input.extraSeats > 0
       ? `<tr><td style="padding:6px 0;color:#5B5F72">${input.extraSeats} extra seat${input.extraSeats === 1 ? "" : "s"} &times; ${rupees(input.extraSeatPrice)}${input.cadence === "annual" ? ` &times; ${ANNUAL_MONTHS_CHARGED} months` : ""}</td><td style="padding:6px 0;text-align:right">${rupees(input.seatCost)}</td></tr>`
       : "";
+  const moduleRows = input.moduleLines
+    .map(
+      (m) =>
+        `<tr><td style="padding:6px 0;color:#5B5F72">${m.name}${input.cadence === "annual" ? ` &times; ${ANNUAL_MONTHS_CHARGED} months` : ""}</td><td style="padding:6px 0;text-align:right">${rupees(m.cost)}</td></tr>`,
+    )
+    .join("");
   const planRow =
     input.cadence === "annual"
       ? `${input.planName} plan &mdash; annual (${ANNUAL_MONTHS_CHARGED} months, 2 free)`
@@ -58,6 +82,7 @@ function invoiceHtml(input: {
       <table style="width:100%;border-collapse:collapse;font-size:14px">
         <tr><td style="padding:6px 0;color:#5B5F72">${input.planName} plan</td><td style="padding:6px 0;text-align:right">${rupees(input.basePrice)}</td></tr>
         ${seatRow}
+        ${moduleRows}
         <tr><td style="padding:6px 0;color:#5B5F72">GST (18%)</td><td style="padding:6px 0;text-align:right">${rupees(input.gst)}</td></tr>
         <tr style="border-top:1px solid #E2E1DC"><td style="padding:10px 0;font-weight:bold">Total paid</td><td style="padding:10px 0;text-align:right;font-weight:bold">${rupees(input.total)}</td></tr>
       </table>
@@ -101,7 +126,9 @@ export const activateSubscription = createServerFn({ method: "POST" })
 
     const { data: existingLicense, error: existingLicenseError } = await context.supabase
       .from("licenses")
-      .select("plan, seats, current_period_end, legacy_base_price_inr, legacy_extra_seat_price_inr")
+      .select(
+        "plan, seats, current_period_end, legacy_base_price_inr, legacy_extra_seat_price_inr, integrations",
+      )
       .eq("tenant_id", data.tenantId)
       .single();
     if (existingLicenseError || !existingLicense) throw new Error("License not found.");
@@ -127,7 +154,18 @@ export const activateSubscription = createServerFn({ method: "POST" })
         : 0;
     const periodMonths = data.cadence === "annual" ? ANNUAL_MONTHS_CHARGED : 1;
     const seatCost = extraSeats * extraSeatPrice * periodMonths;
-    const subtotal = basePrice * (data.cadence === "annual" ? ANNUAL_MONTHS_CHARGED : 1) + seatCost;
+
+    // Purchased modules are billed flat per tenant (not per seat), same as
+    // the price they show in /admin/settings/integrations. Only counts
+    // flags actually set true on this license — never inferred from plan.
+    const integrations = (existingLicense.integrations ?? {}) as Record<string, boolean>;
+    const moduleLines = Object.entries(MODULE_NAMES)
+      .filter(([key]) => integrations[key] === true)
+      .map(([key, name]) => ({ name, cost: MODULE_PRICE_INR[key]! * periodMonths }));
+    const modulesTotal = moduleLines.reduce((sum, m) => sum + m.cost, 0);
+
+    const subtotal =
+      basePrice * (data.cadence === "annual" ? ANNUAL_MONTHS_CHARGED : 1) + seatCost + modulesTotal;
     const gst = Math.round(subtotal * GST_RATE);
     const total = subtotal + gst;
 
@@ -198,6 +236,7 @@ export const activateSubscription = createServerFn({ method: "POST" })
           seatCost,
           extraSeats,
           extraSeatPrice,
+          moduleLines,
           gst,
           total,
           periodEnd: periodEnd.toLocaleDateString("en-IN", {

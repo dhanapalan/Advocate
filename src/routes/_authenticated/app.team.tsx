@@ -47,6 +47,7 @@ type Entitlements = {
   extra_seats: number;
   extra_seat_price_inr: number | null;
   base_price_inr: number;
+  modules_total_inr: number;
   monthly_total_inr: number;
   ocr_enabled: boolean;
   whatsapp_enabled: boolean;
@@ -495,6 +496,12 @@ function Team() {
                       <dd className="font-medium">
                         {rupees(ent.extra_seats * (ent.extra_seat_price_inr ?? 0))}
                       </dd>
+                    </div>
+                  ) : null}
+                  {ent.modules_total_inr > 0 ? (
+                    <div className="flex justify-between">
+                      <dt className="text-muted-foreground">Add-on modules</dt>
+                      <dd className="font-medium">{rupees(ent.modules_total_inr)}</dd>
                     </div>
                   ) : null}
                   <div className="flex justify-between border-t border-border pt-2">
