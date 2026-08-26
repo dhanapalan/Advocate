@@ -5,7 +5,7 @@ import { findClashKeys, isClashing } from "@/lib/hearing-conflicts";
 import { getOwnIntegrations } from "@/lib/tenant-integrations";
 import { todayIsoIST } from "@/lib/date-ist";
 import { decryptField } from "@/lib/field-encryption";
-import { requireModule } from "@/lib/require-module";
+import { requireModule, getEnabledModules } from "@/lib/require-module";
 
 // Deterministic aggregation for the Court Morning Brief. Every value here
 // comes straight from a real query — nothing is inferred or generated. The
@@ -111,12 +111,18 @@ export const getMorningBrief = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ date: z.string().optional() }).parse(data ?? {}))
   .handler(async ({ data, context }) => {
-    // Primary-module gate only, per the microservices plan's Phase 0 scope —
-    // the Morning Brief is fundamentally a hearings aggregation, so it's
-    // gated on Diary as a whole rather than feature-detecting every section
-    // (matters/documents/billing) independently. That finer-grained
-    // degradation is Phase 7 (bright-toasting-thompson.md).
+    // Primary-module gate: no hearings without Diary, so no brief either —
+    // that part hasn't changed since Phase 0. What's new in Phase 7 is
+    // per-section feature-detection below: a tenant missing Matters/
+    // Documents/Billing gets that section's data quietly omitted from every
+    // item rather than the whole brief erroring or (worse) silently reading
+    // tables the tenant hasn't purchased access to.
     await requireModule(context.supabase, context.userId, "diary");
+    const enabledModules = await getEnabledModules(context.supabase, context.userId, [
+      "matters",
+      "documents",
+      "billing",
+    ]);
     const targetDate = data.date ?? todayIsoIST();
 
     const { data: profile } = await context.supabase
@@ -170,21 +176,25 @@ export const getMorningBrief = createServerFn({ method: "GET" })
 
     const [mattersByIdRes, mattersByTitleRes, priorHearingsRes, relatedDocsRes, invoicesRes] =
       await Promise.all([
-        matterIds.length
+        enabledModules.matters && matterIds.length
           ? context.supabase
               .from("matters")
               .select("id, title, client_name, case_number, status, opposing_party")
               .in("id", matterIds)
           : Promise.resolve({ data: [], error: null }),
-        context.supabase
-          .from("matters")
-          .select("id, title, client_name, case_number, status, opposing_party")
-          .in("title", matterTitles),
+        enabledModules.matters
+          ? context.supabase
+              .from("matters")
+              .select("id, title, client_name, case_number, status, opposing_party")
+              .in("title", matterTitles)
+          : Promise.resolve({ data: [], error: null }),
         // Most recent hearing strictly before today for each of today's matter
         // titles — "previous hearing" is matched by matter_title, since
         // hearings.matter_id isn't populated by the create-hearing flow today
         // (see hearing-conflicts.ts and services/diary/src/hearings.ts) and
-        // title is the only reliable join key actually in use.
+        // title is the only reliable join key actually in use. Not gated on
+        // any module beyond the primary Diary gate above — it's a hearings
+        // read, same table this whole brief already depends on.
         context.supabase
           .from("hearings")
           .select("matter_title, hearing_date, hearing_time, status, purpose")
@@ -194,13 +204,16 @@ export const getMorningBrief = createServerFn({ method: "GET" })
           .limit(500),
         // Best-effort, exact-string match only — ai_documents.matter_ref is
         // free text, not a foreign key, so a fuzzy match here would risk
-        // attaching the wrong matter's documents to this brief.
-        context.supabase
-          .from("ai_documents")
-          .select("id, name, doc_kind, status, matter_ref, created_at")
-          .in("matter_ref", matterTitles)
-          .order("created_at", { ascending: false }),
-        matterIds.length
+        // attaching the wrong matter's documents to this brief. Skipped
+        // entirely when Documents isn't purchased — see enabledModules above.
+        enabledModules.documents
+          ? context.supabase
+              .from("ai_documents")
+              .select("id, name, doc_kind, status, matter_ref, created_at")
+              .in("matter_ref", matterTitles)
+              .order("created_at", { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
+        enabledModules.billing && matterIds.length
           ? context.supabase
               .from("invoices")
               .select("id, invoice_number, matter_id, amount, status, due_date")

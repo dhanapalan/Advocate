@@ -8,9 +8,9 @@ approved plan file — not committed to this repo, so summarized here for anyone
 to it: `C:\Users\cdhan\.claude\plans\bright-toasting-thompson.md`.
 
 **Validation is deliberately deferred to a single pass after every planned phase below is
-built**, per explicit instruction this session — phases 0–6 are build/lint-clean and deployed,
-but not yet live pen-tested the way Phase 1 originally was. Do not treat "done" below as
-"verified live" until that final validation pass runs.
+built**, per explicit instruction this session — phases 0–7, the complete planned scope, are now
+build/lint-clean and deployed, but not yet live pen-tested the way Phase 1 originally was. Do not
+treat "done" below as "verified live" until that final validation pass runs.
 
 ---
 
@@ -39,7 +39,7 @@ flags inside one Worker. Two structural calls made early and not up for re-litig
 | 4 | Documents (incl. OCR) extracted → `services/documents/` (`lexdiary-documents`) | ✅ **Done, deployed** | Scoping question from the previous entry resolved: extracted the `ai_documents` reviewed-document CRUD only (`listDocumentAnalyses`/`updateDocumentAnalysisStatus`), same shape as phases 1–3. `ocr-extract`/`ai-analyze-document` stay on Supabase Edge Functions with their own `AI_GATEWAY_API_KEY` — moving AI-Gateway-calling logic into a Cloudflare Worker had no isolation benefit and would've meant re-implementing it in a different runtime. No `FIELD_ENCRYPTION_KEY` needed — neither extracted function touches `ai_documents.raw_text` (the one encrypted column), which stays a main-app-only read via `getMatterContext` |
 | 5 | Billing extracted → `services/billing/` (`lexdiary-billing`) | ✅ **Done, deployed** | Owns `time_entries`, `invoices` — no `FIELD_ENCRYPTION_KEY` needed, neither table has an encrypted free-text column |
 | 6 | Drafting (incl. Dictation) extracted → `services/drafting/` (`lexdiary-drafting`); AI Assistant extracted → `services/assistant/` (`lexdiary-assistant`) | ✅ **Done, deployed** | Scoping question resolved the same way as Phase 4: CRUD only moved (`ai_drafts` for Drafting; `ai_conversations`/`ai_messages` for Assistant). AI-calling edge functions (`ai-generate-draft`, `dictation-transcribe`, `dictation-format`, `ai-assistant`, `ai-ask-case`) stay on Supabase Edge Functions with their own `AI_GATEWAY_API_KEY` and their own `requireModule` gate from Phase 0. Drafting needed its own `FIELD_ENCRYPTION_KEY` (`ai_drafts.content` is encrypted); Assistant needed none. **Matter Intelligence has no CRUD table of its own** — it's purely `ai-morning-brief`/`ai-matter-summary`/`ai-generate-briefing` edge functions, already gated on `matter_intelligence` from Phase 0, so there is no separate service to extract for it |
-| 7 | Aggregator cleanup — extend `getMorningBrief`/`getMatterContext` feature-detection to every new module key, so a tenant missing Billing/Documents/Diary gets that section omitted rather than an error | ⏳ **Pending** | Deliberately deferred per the plan — phases 0–3 only did *primary-module* gating on these two aggregators, not full per-section feature-detection. Needs live-testing across each module's on/off state independently, not the full combinatorial matrix |
+| 7 | Aggregator cleanup — extend `getMorningBrief`/`getMatterContext` feature-detection to every module key they touch | ✅ **Done, deployed** | Added `getEnabledModules()` to `require-module.ts` — a non-throwing, batched sibling of `requireModule()` that returns `{[moduleKey]: boolean}` for a list of keys in one profile+license lookup, trial-bypass and `{module}_enabled` semantics unchanged. `getMorningBrief` now skips the Matters/Documents/Billing queries a tenant hasn't purchased (falling back to `{data: [], error: null}`, same pattern the file already used for its `matterIds.length ?` conditionals) instead of joining them unconditionally; primary Diary gate is unchanged, since no hearings means no brief regardless. `getMatterContext` does the same for Diary (hearings + cause-list matches) and Documents; primary Matters gate unchanged. Both aggregators' existing "empty array/null renders as omitted" UI behavior needed no changes — the queries were the only thing gating on purchase status, not the rendering |
 
 ---
 
@@ -74,14 +74,20 @@ none of the eight sellable modules needed the AI-calling logic itself to move.
 
 ---
 
-## Before starting Phase 7
+## All planned phases are now built
 
-`src/lib/ai.functions.ts` no longer exists — Phase 6 extracted everything it held. Only two
-files in the main app now do direct `ai_documents`/`invoices` reads for aggregation
-(`getMorningBrief` in `morning-brief.functions.ts`, `getMatterContext` in
-`matter-context.functions.ts`), and Phase 7 is exactly the work of making those two resilient to
-a tenant missing any one of Diary/Documents/Billing, rather than the current primary-module-only
-gate from Phase 0. No open scoping question here — the plan's Phase 7 description already
-covers this precisely; the main risk is under-testing the module on/off combinatorics, which the
-plan explicitly calls out to bound (test each module's state independently, not the full 2^n
-matrix).
+Phases 0–7 are complete: every sellable module either has its own deployed Cloudflare Worker
+(Clients, Matters, Diary & Cause-list, Documents, Billing, Drafting, AI Assistant) or — for
+Matter Intelligence, which owns no table of its own — its existing Phase-0 edge-function gate
+was confirmed sufficient. Both cross-feature aggregators now feature-detect every module they
+touch instead of erroring on a missing one.
+
+**Next: the deferred validation pass**, per the plan's verification section and this session's
+explicit instruction to validate once at the end rather than after each phase. At minimum this
+should repeat, for every extracted service, the battery Phase 1 (Clients) ran live: a real
+throwaway tenant, CRUD through the service, the module-gate 403↔200 transition, the cross-tenant
+isolation sweep (unfiltered list, cross-tenant UPDATE/DELETE), and cleanup with a
+zero-leftover-rows check — plus, new for Phase 7, exercising `getMorningBrief`/`getMatterContext`
+with each of Diary/Documents/Billing/Matters toggled off independently (not the full 2^n
+combinatorial matrix, per the plan's own scoping guidance) to confirm sections omit cleanly
+rather than error.

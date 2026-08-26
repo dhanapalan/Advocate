@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getOwnIntegrations } from "@/lib/tenant-integrations";
 import { decryptField } from "@/lib/field-encryption";
-import { requireModule } from "@/lib/require-module";
+import { requireModule, getEnabledModules } from "@/lib/require-module";
 
 // MatterContextService (K3) — the single, reusable place that assembles
 // everything LexDiary actually knows about one matter, tenant-scoped and
@@ -79,10 +79,15 @@ export const getMatterContext = createServerFn({ method: "GET" })
   .inputValidator((data: unknown) => z.object({ matterId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }): Promise<MatterContext | null> => {
     const { supabase } = context;
-    // Primary-module gate only — see morning-brief.functions.ts's
-    // getMorningBrief for the same rationale (Phase 0 scope, per-section
-    // feature-detection deferred to Phase 7).
+    // Primary-module gate: no matter, no context — unchanged since Phase 0.
+    // Phase 7 adds per-section feature-detection below: a tenant missing
+    // Diary or Documents gets that section quietly omitted rather than the
+    // whole context erroring or reading tables it hasn't purchased access to.
     await requireModule(supabase, context.userId, "matters");
+    const enabledModules = await getEnabledModules(supabase, context.userId, [
+      "diary",
+      "documents",
+    ]);
 
     const { data: matterRow, error: matterError } = await supabase
       .from("matters")
@@ -99,18 +104,27 @@ export const getMatterContext = createServerFn({ method: "GET" })
 
     const [hearingsByIdRes, hearingsByTitleRes, matchesRes, documentsRes, integrations] =
       await Promise.all([
-        supabase.from("hearings").select(hearingColumns).eq("matter_id", matterRow.id),
-        supabase.from("hearings").select(hearingColumns).eq("matter_title", matterRow.title),
-        supabase.from("cause_list_matches").select("record_id").eq("matter_id", matterRow.id),
+        enabledModules.diary
+          ? supabase.from("hearings").select(hearingColumns).eq("matter_id", matterRow.id)
+          : Promise.resolve({ data: [], error: null }),
+        enabledModules.diary
+          ? supabase.from("hearings").select(hearingColumns).eq("matter_title", matterRow.title)
+          : Promise.resolve({ data: [], error: null }),
+        enabledModules.diary
+          ? supabase.from("cause_list_matches").select("record_id").eq("matter_id", matterRow.id)
+          : Promise.resolve({ data: [], error: null }),
         // Best-effort, exact-string match only — ai_documents.matter_ref is
         // free text, not a foreign key (see morning-brief.functions.ts for the
         // same rationale). A document whose matter_ref doesn't exactly equal
-        // this matter's title is never attributed here, by design.
-        supabase
-          .from("ai_documents")
-          .select("id, name, doc_kind, status, summary, matter_ref, created_at")
-          .eq("matter_ref", matterRow.title)
-          .order("created_at", { ascending: false }),
+        // this matter's title is never attributed here, by design. Skipped
+        // entirely when Documents isn't purchased — see enabledModules above.
+        enabledModules.documents
+          ? supabase
+              .from("ai_documents")
+              .select("id, name, doc_kind, status, summary, matter_ref, created_at")
+              .eq("matter_ref", matterRow.title)
+              .order("created_at", { ascending: false })
+          : Promise.resolve({ data: [], error: null }),
         getOwnIntegrations(supabase, context.userId),
       ]);
     if (hearingsByIdRes.error) throw new Error(hearingsByIdRes.error.message);

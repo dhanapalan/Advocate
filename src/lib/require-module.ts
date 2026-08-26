@@ -55,3 +55,41 @@ export async function requireModule(
     `${MODULE_LABELS[moduleKey]} isn't included on this chamber's plan yet — contact chambers@lexdiary.online to add it.`,
   );
 }
+
+/**
+ * Non-throwing sibling of requireModule() for aggregators (getMorningBrief,
+ * getMatterContext) that assemble several sections from several modules at
+ * once — a tenant missing one module should get that section silently
+ * omitted, not the whole aggregator refused. One profile+license lookup for
+ * every key requested, same trial-bypass and "{module}_enabled" semantics
+ * as requireModule(), just returning booleans instead of throwing. Phase 7
+ * of the microservices plan (bright-toasting-thompson.md).
+ */
+export async function getEnabledModules(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  moduleKeys: ModuleKey[],
+): Promise<Record<ModuleKey, boolean>> {
+  const allDisabled = () =>
+    Object.fromEntries(moduleKeys.map((key) => [key, false])) as Record<ModuleKey, boolean>;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("tenant_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (!profile?.tenant_id) return allDisabled();
+
+  const { data: license } = await supabase
+    .from("licenses")
+    .select("plan, integrations")
+    .eq("tenant_id", profile.tenant_id)
+    .maybeSingle();
+  if (!license) return allDisabled();
+
+  const isTrial = license.plan === "trial";
+  const integrations = (license.integrations ?? {}) as Record<string, boolean | undefined>;
+  return Object.fromEntries(
+    moduleKeys.map((key) => [key, isTrial || integrations[`${key}_enabled`] === true]),
+  ) as Record<ModuleKey, boolean>;
+}
