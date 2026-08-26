@@ -4,7 +4,10 @@ import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { DataTable } from "@/components/app/primitives";
-import { createClient, deleteClient, listClients, updateClient } from "@/lib/clients.functions";
+// Calls the Clients microservice (services/clients/) directly from the
+// browser — not a TanStack server function, so no useServerFn wrapping.
+// See src/lib/clients-service.ts for why.
+import { createClient, deleteClient, listClients, updateClient } from "@/lib/clients-service";
 import { getMyMembership } from "@/lib/team.functions";
 import { confirmPermanentRemoval } from "@/lib/confirm";
 
@@ -30,10 +33,13 @@ type ClientRow = {
 };
 
 function Clients() {
-  const loadClients = useServerFn(listClients);
-  const addClient = useServerFn(createClient);
-  const saveClient = useServerFn(updateClient);
-  const removeClient = useServerFn(deleteClient);
+  // listClients/createClient/updateClient/deleteClient are plain fetch()
+  // calls to the Clients service, not TanStack server functions — no
+  // useServerFn wrapping for those. getMyMembership still is one.
+  const loadClients = listClients;
+  const addClient = createClient;
+  const saveClient = updateClient;
+  const removeClient = deleteClient;
   const loadMembership = useServerFn(getMyMembership);
 
   const [clients, setClients] = useState<ClientRow[]>([]);
@@ -89,13 +95,11 @@ function Clients() {
     setError(null);
     try {
       await saveClient({
-        data: {
-          clientId: editingId,
-          name: editForm.name.trim(),
-          phone: editForm.phone.trim() || undefined,
-          email: editForm.email.trim() || undefined,
-          notes: editForm.notes.trim() || undefined,
-        },
+        clientId: editingId,
+        name: editForm.name.trim(),
+        phone: editForm.phone.trim() || undefined,
+        email: editForm.email.trim() || undefined,
+        notes: editForm.notes.trim() || undefined,
       });
       setEditingId(null);
       await reload();
@@ -110,7 +114,7 @@ function Clients() {
     if (!confirmPermanentRemoval(`"${client.name}"`)) return;
     setError(null);
     try {
-      await removeClient({ data: { clientId: client.id } });
+      await removeClient({ clientId: client.id });
       await reload();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Failed to delete this client.");
@@ -124,12 +128,10 @@ function Clients() {
     setError(null);
     try {
       await addClient({
-        data: {
-          name: form.name.trim(),
-          phone: form.phone.trim() || undefined,
-          email: form.email.trim() || undefined,
-          notes: form.notes.trim() || undefined,
-        },
+        name: form.name.trim(),
+        phone: form.phone.trim() || undefined,
+        email: form.email.trim() || undefined,
+        notes: form.notes.trim() || undefined,
       });
       setForm({ name: "", phone: "", email: "", notes: "" });
       await reload();

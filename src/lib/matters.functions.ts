@@ -6,9 +6,10 @@ import { requireModule } from "@/lib/require-module";
 
 // Tenant-scoped matters CRUD. RLS (tenant_id = current_tenant_id()) stops
 // cross-tenant access; requireModule stops a tenant whose own plan doesn't
-// include matters/case-tracking, regardless of tenant. Client CRUD moved to
-// clients.functions.ts (20260826 module-selling pivot) — matters and
-// clients are now separately-sold modules, not one file.
+// include matters/case-tracking, regardless of tenant. Client CRUD moved out
+// (20260826 module-selling pivot) and now lives in services/clients/, a
+// separately deployed microservice — see src/lib/clients-service.ts for the
+// browser-side client that calls it.
 
 export const listMatters = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
