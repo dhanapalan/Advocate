@@ -352,50 +352,6 @@ export const ingestCauseList = createServerFn({ method: "POST" })
       else if (changes.some((c) => c.changeType !== "unchanged")) changedCount++;
       else unchangedCount++;
 
-      const { data: newRecord, error: insertError } = await supabase
-        .from("cause_list_records")
-        .insert({
-          source_id: source.id,
-          list_date: data.listDate,
-          court: source.court,
-          bench: source.bench,
-          list_type: source.list_type,
-          serial_number: row.serialNumber,
-          case_number: row.caseNumber,
-          cnr: row.cnr,
-          petitioner: row.petitioner,
-          respondent: row.respondent,
-          advocate_names: row.advocateNames,
-          stage: row.stage,
-          court_hall: row.courtHall,
-          source_reference: row.sourceReference,
-          raw_payload: row,
-          created_by: context.userId,
-        })
-        .select("*")
-        .single();
-      if (insertError) throw new Error(insertError.message);
-
-      if (previous) {
-        await supabase
-          .from("cause_list_records")
-          .update({ superseded_by: newRecord.id })
-          .eq("id", previous.id);
-      }
-
-      if (changes.length > 0) {
-        await supabase.from("cause_list_changes").insert(
-          changes.map((c) => ({
-            record_id: newRecord.id,
-            previous_record_id: previous?.id ?? null,
-            change_type: c.changeType,
-            field_name: c.fieldName,
-            old_value: c.oldValue,
-            new_value: c.newValue,
-          })),
-        );
-      }
-
       let matchResult: {
         matterId: string | null;
         method: string;
@@ -434,22 +390,50 @@ export const ingestCauseList = createServerFn({ method: "POST" })
       else unmatchedCount++;
 
       const carryReview = previousMatch?.status === "matched";
-      await supabase.from("cause_list_matches").insert({
-        record_id: newRecord.id,
-        matter_id: matchResult.matterId,
-        match_method: matchResult.method,
-        confidence: matchResult.confidence,
-        status: matchResult.status,
-        reviewed_by: carryReview ? previousMatch!.reviewed_by : null,
-        reviewed_at: carryReview ? previousMatch!.reviewed_at : null,
-      });
+      const matchedMatter =
+        matchResult.status === "matched" && matchResult.matterId
+          ? candidates.find((m) => m.id === matchResult.matterId)
+          : undefined;
 
-      if (matchResult.status === "matched" && matchResult.matterId) {
-        const matter = candidates.find((m) => m.id === matchResult.matterId);
-        if (matter) {
-          await reconcileHearing(supabase, context.userId, newRecord, matter.id, matter.title);
-        }
-      }
+      // Record insert, supersede, changes, match and hearing-reconciliation
+      // all happen inside one Postgres transaction (see the migration's
+      // header comment for the bug this closes) — previously five separate
+      // round trips with no atomicity, so a failure partway through could
+      // leave an orphaned record with no match row.
+      const { error: ingestError } = await supabase.rpc("ingest_cause_list_row", {
+        p_source_id: source.id,
+        p_list_date: data.listDate,
+        p_court: source.court,
+        p_bench: source.bench,
+        p_list_type: source.list_type,
+        p_serial_number: row.serialNumber,
+        p_case_number: row.caseNumber,
+        p_cnr: row.cnr,
+        p_petitioner: row.petitioner,
+        p_respondent: row.respondent,
+        p_advocate_names: row.advocateNames,
+        p_stage: row.stage,
+        p_court_hall: row.courtHall,
+        p_source_reference: row.sourceReference,
+        p_raw_payload: row,
+        p_created_by: context.userId,
+        p_previous_id: previous?.id ?? null,
+        p_changes: changes.map((c) => ({
+          changeType: c.changeType,
+          fieldName: c.fieldName,
+          oldValue: c.oldValue,
+          newValue: c.newValue,
+        })),
+        p_match_matter_id: matchResult.matterId,
+        p_match_method: matchResult.method,
+        p_match_confidence: matchResult.confidence,
+        p_match_status: matchResult.status,
+        p_carry_reviewed_by: carryReview ? previousMatch!.reviewed_by : null,
+        p_carry_reviewed_at: carryReview ? previousMatch!.reviewed_at : null,
+        p_reconcile_matter_title: matchedMatter?.title ?? null,
+        p_reconcile_purpose_encrypted: matchedMatter ? await encryptField(row.stage) : null,
+      });
+      if (ingestError) throw new Error(ingestError.message);
     }
 
     const removedRefs = findRemovedReferences([...headByRef.keys()], currentReferences);
