@@ -8,7 +8,7 @@ approved plan file — not committed to this repo, so summarized here for anyone
 to it: `C:\Users\cdhan\.claude\plans\bright-toasting-thompson.md`.
 
 **Validation is deliberately deferred to a single pass after every planned phase below is
-built**, per explicit instruction this session — phases 0–4 are build/lint-clean and deployed,
+built**, per explicit instruction this session — phases 0–5 are build/lint-clean and deployed,
 but not yet live pen-tested the way Phase 1 originally was. Do not treat "done" below as
 "verified live" until that final validation pass runs.
 
@@ -37,7 +37,7 @@ flags inside one Worker. Two structural calls made early and not up for re-litig
 | 2 | Matters extracted → `services/matters/` (`lexdiary-matters`) | ✅ **Done, deployed** | Widest blast radius so far — 9 call sites across 8 files (Cases, Document Intelligence, and every matter-picker dropdown app-wide). `getMatter` not ported (dead code, confirmed by grep) |
 | 3 | Diary & Cause-list extracted → `services/diary/` (`lexdiary-diary`) | ✅ **Done, deployed** | Bundled as one service/module (`diary`) — `reconcileHearing` couples the two too tightly to split, per the plan. `listMatterHearings` and `listMatterCauseListHistory` not ported (both dead code) |
 | 4 | Documents (incl. OCR) extracted → `services/documents/` (`lexdiary-documents`) | ✅ **Done, deployed** | Scoping question from the previous entry resolved: extracted the `ai_documents` reviewed-document CRUD only (`listDocumentAnalyses`/`updateDocumentAnalysisStatus`), same shape as phases 1–3. `ocr-extract`/`ai-analyze-document` stay on Supabase Edge Functions with their own `AI_GATEWAY_API_KEY` — moving AI-Gateway-calling logic into a Cloudflare Worker had no isolation benefit and would've meant re-implementing it in a different runtime. No `FIELD_ENCRYPTION_KEY` needed — neither extracted function touches `ai_documents.raw_text` (the one encrypted column), which stays a main-app-only read via `getMatterContext` |
-| 5 | Billing → `services/billing/` | ⏳ **Pending** | Owns `time_entries`, `invoices` |
+| 5 | Billing extracted → `services/billing/` (`lexdiary-billing`) | ✅ **Done, deployed** | Owns `time_entries`, `invoices` — no `FIELD_ENCRYPTION_KEY` needed, neither table has an encrypted free-text column |
 | 6 | Drafting (incl. Dictation), AI Assistant, Matter Intelligence | ⏳ **Pending** | Different shape from phases 1–3: these own AI-calling edge functions (`ai-generate-draft`, `dictation-transcribe`, `dictation-format`, `ai-assistant`, `ai-ask-case`, `ai-morning-brief`, `ai-matter-summary`, `ai-generate-briefing`) and the `AI_GATEWAY_API_KEY` secret, not just Postgres CRUD — needs its own scoping pass before starting |
 | 7 | Aggregator cleanup — extend `getMorningBrief`/`getMatterContext` feature-detection to every new module key, so a tenant missing Billing/Documents/Diary gets that section omitted rather than an error | ⏳ **Pending** | Deliberately deferred per the plan — phases 0–3 only did *primary-module* gating on these two aggregators, not full per-section feature-detection. Needs live-testing across each module's on/off state independently, not the full combinatorial matrix |
 
@@ -52,6 +52,7 @@ flags inside one Worker. Two structural calls made early and not up for re-litig
 | `lexdiary-matters` | `https://lexdiary-matters.dhanapalan-advocate.workers.dev` | `matters` table |
 | `lexdiary-diary` | `https://lexdiary-diary.dhanapalan-advocate.workers.dev` | `hearings`, `cause_list_sources/records/matches/changes` |
 | `lexdiary-documents` | `https://lexdiary-documents.dhanapalan-advocate.workers.dev` | `ai_documents` (list/status CRUD only) |
+| `lexdiary-billing` | `https://lexdiary-billing.dhanapalan-advocate.workers.dev` | `time_entries`, `invoices` |
 
 Each extracted service: no `SUPABASE_SERVICE_ROLE_KEY` (ever); its own independent
 `FIELD_ENCRYPTION_KEY` secret where it actually touches an encrypted column (verified zero

@@ -1,16 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Plus } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { DataTable, StatCard, Tag, type Tone } from "@/components/app/primitives";
+// Calls the Billing microservice (services/billing/) directly from the
+// browser — not a TanStack server function, so no useServerFn wrapping.
 import {
   createInvoice,
   createTimeEntry,
   listInvoices,
   listTimeEntries,
   updateInvoiceStatus,
-} from "@/lib/billing.functions";
+} from "@/lib/billing-service";
 import { friendlyErrorMessage } from "@/lib/friendly-error";
 
 export const Route = createFileRoute("/_authenticated/app/billing")({
@@ -66,11 +67,11 @@ function rupees(value: number): string {
 }
 
 function Billing() {
-  const loadTimeEntries = useServerFn(listTimeEntries);
-  const addTimeEntry = useServerFn(createTimeEntry);
-  const loadInvoices = useServerFn(listInvoices);
-  const addInvoice = useServerFn(createInvoice);
-  const setInvoiceStatus = useServerFn(updateInvoiceStatus);
+  const loadTimeEntries = listTimeEntries;
+  const addTimeEntry = createTimeEntry;
+  const loadInvoices = listInvoices;
+  const addInvoice = createInvoice;
+  const setInvoiceStatus = updateInvoiceStatus;
 
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -135,12 +136,10 @@ function Billing() {
     setError(null);
     try {
       await addTimeEntry({
-        data: {
-          matterTitle: entryForm.matterTitle.trim(),
-          task: entryForm.task.trim(),
-          hours,
-          rate: entryForm.rate ? Number(entryForm.rate) : undefined,
-        },
+        matterTitle: entryForm.matterTitle.trim(),
+        task: entryForm.task.trim(),
+        hours,
+        rate: entryForm.rate ? Number(entryForm.rate) : undefined,
       });
       setEntryForm({ matterTitle: "", task: "", hours: "", rate: "" });
       await reload();
@@ -160,14 +159,12 @@ function Billing() {
     setError(null);
     try {
       await addInvoice({
-        data: {
-          invoiceNumber: invoiceForm.invoiceNumber.trim(),
-          clientName: invoiceForm.clientName.trim(),
-          matterTitle: invoiceForm.matterTitle.trim() || undefined,
-          amount,
-          gstAmount: invoiceForm.gstAmount ? Number(invoiceForm.gstAmount) : undefined,
-          dueDate: invoiceForm.dueDate || undefined,
-        },
+        invoiceNumber: invoiceForm.invoiceNumber.trim(),
+        clientName: invoiceForm.clientName.trim(),
+        matterTitle: invoiceForm.matterTitle.trim() || undefined,
+        amount,
+        gstAmount: invoiceForm.gstAmount ? Number(invoiceForm.gstAmount) : undefined,
+        dueDate: invoiceForm.dueDate || undefined,
       });
       setInvoiceForm({
         invoiceNumber: "",
@@ -188,9 +185,7 @@ function Billing() {
   async function handleStatusChange(id: string, status: Invoice["status"]) {
     setError(null);
     try {
-      await setInvoiceStatus({
-        data: { id, status: status as "draft" | "sent" | "paid" | "overdue" },
-      });
+      await setInvoiceStatus({ id, status: status as "draft" | "sent" | "paid" | "overdue" });
       await reload();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Failed to update invoice.");

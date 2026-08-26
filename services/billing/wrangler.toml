@@ -1,0 +1,12 @@
+name = "lexdiary-billing"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Same public values as the main app's wrangler.toml — not secrets, safe to
+# duplicate. No FIELD_ENCRYPTION_KEY here: time_entries and invoices have no
+# encrypted free-text column (no "notes" field on either table) — see
+# billing.functions.ts, which never called encryptField/decryptField either.
+[vars]
+SUPABASE_URL = "https://cjcjfdwdlsdgyvshuncn.supabase.co"
+SUPABASE_PUBLISHABLE_KEY = "sb_publishable_DnB_8STNU8FST_sCkRAM4w_K9c8A4Ft"
