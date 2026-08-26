@@ -15,6 +15,7 @@ import {
   type ComparableRecord,
 } from "@/lib/cause-list-changes";
 import { getOwnIntegrations } from "@/lib/tenant-integrations";
+import { requireModule } from "@/lib/require-module";
 import type { Database } from "@/integrations/supabase/types";
 
 // Tenant-scoped cause-list CRUD, ingestion and matching. Same trust model as
@@ -60,6 +61,7 @@ export const getCauseListFeatureEnabled = createServerFn({ method: "GET" })
 export const listCauseListSources = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    await requireModule(context.supabase, context.userId, "diary");
     const { data, error } = await context.supabase
       .from("cause_list_sources")
       .select(
@@ -82,6 +84,7 @@ export const createCauseListSource = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "diary");
     const { data: saved, error } = await context.supabase
       .from("cause_list_sources")
       .insert({
@@ -105,6 +108,7 @@ export const setCauseListSourceEnabled = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), enabled: z.boolean() }).parse(data),
   )
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "diary");
     const { error } = await context.supabase
       .from("cause_list_sources")
       .update({ enabled: data.enabled })
@@ -208,6 +212,7 @@ export const ingestCauseList = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    await requireModule(supabase, context.userId, "diary");
     const now = new Date().toISOString();
 
     // Governance checkpoint, same pattern as the AI Morning Brief layer: a
@@ -502,6 +507,7 @@ export const listCauseListEntries = createServerFn({ method: "GET" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    await requireModule(supabase, context.userId, "diary");
 
     const { data: records, error: recordsError } = await supabase
       .from("cause_list_records")
@@ -626,6 +632,7 @@ export const matchMatterManually = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    await requireModule(supabase, context.userId, "diary");
     const { data: match, error: matchError } = await supabase
       .from("cause_list_matches")
       .select("*")
@@ -668,6 +675,7 @@ export const rejectCauseListMatch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ matchId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "diary");
     const { error } = await context.supabase
       .from("cause_list_matches")
       .update({
@@ -694,6 +702,7 @@ export const listMatterCauseListHistory = createServerFn({ method: "GET" })
   .inputValidator((data: unknown) => z.object({ matterId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    await requireModule(supabase, context.userId, "diary");
 
     const { data: matches, error: matchesError } = await supabase
       .from("cause_list_matches")
@@ -768,6 +777,7 @@ export const listCauseListChangeHistory = createServerFn({ method: "GET" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
+    await requireModule(supabase, context.userId, "diary");
     const { data: versions, error: versionsError } = await supabase
       .from("cause_list_records")
       .select("id, list_date, created_at")

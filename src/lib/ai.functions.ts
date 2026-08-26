@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { decryptField, encryptField } from "@/lib/field-encryption";
+import { requireModule } from "@/lib/require-module";
 
 // AI-calling functions (askAssistant, analyzeDocument, generateDraft,
 // generateBriefing) live in supabase/functions/ as Edge Functions — see
@@ -13,6 +14,7 @@ import { decryptField, encryptField } from "@/lib/field-encryption";
 export const listConversations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    await requireModule(context.supabase, context.userId, "ai_assistant");
     const { data, error } = await context.supabase
       .from("ai_conversations")
       .select("id, title, matter_ref, updated_at")
@@ -26,6 +28,7 @@ export const listMessages = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ conversationId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "ai_assistant");
     // RLS (tenant_id = current_tenant_id()) already scopes this to the
     // caller's firm — a row coming back at all confirms it's in-tenant.
     const { data: visible } = await context.supabase
@@ -48,6 +51,7 @@ export const deleteConversation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ conversationId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "ai_assistant");
     const { error } = await context.supabase
       .from("ai_conversations")
       .delete()
@@ -59,6 +63,7 @@ export const deleteConversation = createServerFn({ method: "POST" })
 export const listDocumentAnalyses = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    await requireModule(context.supabase, context.userId, "documents");
     const { data, error } = await context.supabase
       .from("ai_documents")
       .select(
@@ -78,6 +83,7 @@ export const updateDocumentAnalysisStatus = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), status: REVIEW_STATUS }).parse(data),
   )
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "documents");
     const { error } = await context.supabase
       .from("ai_documents")
       .update({ status: data.status })
@@ -89,6 +95,7 @@ export const updateDocumentAnalysisStatus = createServerFn({ method: "POST" })
 export const listDrafts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    await requireModule(context.supabase, context.userId, "ai_drafting");
     const { data, error } = await context.supabase
       .from("ai_drafts")
       .select("id, doc_type, matter_ref, instructions, content, status, created_at")
@@ -106,6 +113,7 @@ export const updateDraftStatus = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), status: REVIEW_STATUS }).parse(data),
   )
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "ai_drafting");
     const { error } = await context.supabase
       .from("ai_drafts")
       .update({ status: data.status })
@@ -120,6 +128,7 @@ export const saveDraft = createServerFn({ method: "POST" })
     z.object({ id: z.string().uuid(), content: z.string() }).parse(data),
   )
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "ai_drafting");
     const { error } = await context.supabase
       .from("ai_drafts")
       .update({ content: await encryptField(data.content) })
@@ -144,6 +153,7 @@ export const saveDictatedDraft = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "ai_drafting");
     const { data: saved, error } = await context.supabase
       .from("ai_drafts")
       .insert({

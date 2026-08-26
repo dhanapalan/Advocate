@@ -24,7 +24,7 @@ Deno.serve(async (req) => {
   // it here, not only in the UI: this endpoint is directly callable with
   // any valid user token.
   try {
-    await requireModule(auth.supabase, userId, "ocr");
+    await requireModule(auth.supabase, userId, "documents");
   } catch (cause) {
     return errorResponse(req, cause instanceof Error ? cause.message : "Module check failed.", 403);
   }

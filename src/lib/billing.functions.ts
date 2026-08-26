@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { requireModule } from "@/lib/require-module";
 
 // Tenant-scoped time-entry and invoice CRUD. Manually-tracked invoice
 // status only — no payment gateway integration (see the
@@ -10,6 +11,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 export const listTimeEntries = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    await requireModule(context.supabase, context.userId, "billing");
     const { data, error } = await context.supabase
       .from("time_entries")
       .select("id, matter_title, entry_date, task, hours, rate, billed, created_at")
@@ -33,6 +35,7 @@ export const createTimeEntry = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "billing");
     const { data: saved, error } = await context.supabase
       .from("time_entries")
       .insert({
@@ -52,6 +55,7 @@ export const createTimeEntry = createServerFn({ method: "POST" })
 export const listInvoices = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    await requireModule(context.supabase, context.userId, "billing");
     const { data, error } = await context.supabase
       .from("invoices")
       .select(
@@ -78,6 +82,7 @@ export const createInvoice = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "billing");
     const { data: saved, error } = await context.supabase
       .from("invoices")
       .insert({
@@ -105,6 +110,7 @@ export const updateInvoiceStatus = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "billing");
     const { error } = await context.supabase
       .from("invoices")
       .update({ status: data.status })

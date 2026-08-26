@@ -20,21 +20,29 @@ const PLAN_BASE_PRICE: Record<PayablePlan, number> = {
 const CHAMBER_INCLUDED_SEATS = 2;
 const CHAMBER_EXTRA_SEAT_PRICE = 1999;
 // Mirrors module_price_inr() in the database (supabase/migrations/
-// 20260826100000_module_pricing.sql) — PLACEHOLDER pricing (Rs 499 across
-// the board), flat per tenant regardless of seats. Update both together.
+// 20260826100000_module_pricing.sql, 20260826110000_feature_area_modules.sql)
+// — PLACEHOLDER pricing (Rs 499 across the board), flat per tenant regardless
+// of seats. Update both together. OCR/Dictation retired into
+// Documents/AI Drafting respectively (20260826 module-selling pivot).
 const MODULE_NAMES: Record<string, string> = {
-  ai_drafting_enabled: "AI Drafting",
+  matters_enabled: "Case/Matter Tracking",
+  clients_enabled: "Client Management",
+  diary_enabled: "Court Diary & Cause List",
+  documents_enabled: "Documents (incl. OCR)",
+  billing_enabled: "Time Tracking & Billing",
+  ai_drafting_enabled: "AI Drafting (incl. Dictation)",
   ai_assistant_enabled: "AI Case Assistant",
   matter_intelligence_enabled: "Matter Intelligence",
-  ocr_enabled: "OCR Document Intake",
-  dictation_enabled: "Dictation",
 };
 const MODULE_PRICE_INR: Record<string, number> = {
+  matters_enabled: 499,
+  clients_enabled: 499,
+  diary_enabled: 499,
+  documents_enabled: 499,
+  billing_enabled: 499,
   ai_drafting_enabled: 499,
   ai_assistant_enabled: 499,
   matter_intelligence_enabled: 499,
-  ocr_enabled: 499,
-  dictation_enabled: 499,
 };
 const GST_RATE = 0.18;
 // Annual bills for 10 months' worth — 2 months free relative to paying monthly.

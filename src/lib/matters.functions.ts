@@ -2,15 +2,18 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { decryptField, encryptField } from "@/lib/field-encryption";
+import { requireModule } from "@/lib/require-module";
 
-// Tenant-scoped matters/clients CRUD. RLS (tenant_id = current_tenant_id())
-// does the real enforcement — these handlers never accept or trust a
-// tenant_id from the client; the DB derives it server-side via a trigger
-// from the authenticated user's profile.
+// Tenant-scoped matters CRUD. RLS (tenant_id = current_tenant_id()) stops
+// cross-tenant access; requireModule stops a tenant whose own plan doesn't
+// include matters/case-tracking, regardless of tenant. Client CRUD moved to
+// clients.functions.ts (20260826 module-selling pivot) — matters and
+// clients are now separately-sold modules, not one file.
 
 export const listMatters = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    await requireModule(context.supabase, context.userId, "matters");
     const { data, error } = await context.supabase
       .from("matters")
       .select(
@@ -29,6 +32,7 @@ export const getMatter = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ matterId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "matters");
     const { data: matter, error } = await context.supabase
       .from("matters")
       .select(
@@ -64,6 +68,7 @@ export const updateMatter = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "matters");
     const { data: saved, error } = await context.supabase
       .from("matters")
       .update({
@@ -96,6 +101,7 @@ export const deleteMatter = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ matterId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "matters");
     const { error, count } = await context.supabase
       .from("matters")
       .delete({ count: "exact" })
@@ -120,6 +126,7 @@ export const createMatter = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "matters");
     const { data: saved, error } = await context.supabase
       .from("matters")
       .insert({
@@ -137,91 +144,4 @@ export const createMatter = createServerFn({ method: "POST" })
       .single();
     if (error) throw new Error(error.message);
     return saved;
-  });
-
-export const listClients = createServerFn({ method: "GET" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { data, error } = await context.supabase
-      .from("clients")
-      .select("id, name, phone, email, notes, created_at")
-      .order("created_at", { ascending: false })
-      .limit(100);
-    if (error) throw new Error(error.message);
-    return Promise.all(
-      (data ?? []).map(async (client) => ({ ...client, notes: await decryptField(client.notes) })),
-    );
-  });
-
-// Same fix as updateMatter/deleteMatter above, same reason: RLS already
-// allowed UPDATE for any tenant member and DELETE for tenant admins only —
-// only the server function and UI were missing.
-export const updateClient = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) =>
-    z
-      .object({
-        clientId: z.string().uuid(),
-        name: z.string().min(2),
-        phone: z.string().optional(),
-        email: z.string().email().optional().or(z.literal("")),
-        notes: z.string().optional(),
-      })
-      .parse(data),
-  )
-  .handler(async ({ data, context }) => {
-    const { data: saved, error } = await context.supabase
-      .from("clients")
-      .update({
-        name: data.name,
-        phone: data.phone ?? null,
-        email: data.email || null,
-        notes: await encryptField(data.notes),
-      })
-      .eq("id", data.clientId)
-      .select("id, name, phone, email, notes, created_at")
-      .single();
-    if (error) throw new Error(error.message);
-    return { ...saved, notes: data.notes ?? null };
-  });
-
-export const deleteClient = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) => z.object({ clientId: z.string().uuid() }).parse(data))
-  .handler(async ({ data, context }) => {
-    const { error, count } = await context.supabase
-      .from("clients")
-      .delete({ count: "exact" })
-      .eq("id", data.clientId);
-    if (error) throw new Error(error.message);
-    if (!count) throw new Error("Client not found, or you don't have permission to delete it.");
-    return { ok: true };
-  });
-
-export const createClient = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((data: unknown) =>
-    z
-      .object({
-        name: z.string().min(2),
-        phone: z.string().optional(),
-        email: z.string().email().optional(),
-        notes: z.string().optional(),
-      })
-      .parse(data),
-  )
-  .handler(async ({ data, context }) => {
-    const { data: saved, error } = await context.supabase
-      .from("clients")
-      .insert({
-        name: data.name,
-        phone: data.phone ?? null,
-        email: data.email ?? null,
-        notes: await encryptField(data.notes),
-        created_by: context.userId,
-      })
-      .select("id, name, phone, email, notes, created_at")
-      .single();
-    if (error) throw new Error(error.message);
-    return { ...saved, notes: data.notes ?? null };
   });

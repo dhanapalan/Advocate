@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
   if (!userId) return errorResponse(req, "Unauthorized", 401);
 
   try {
-    await requireModule(auth.supabase, userId, "dictation");
+    await requireModule(auth.supabase, userId, "ai_drafting");
   } catch (cause) {
     return errorResponse(req, cause instanceof Error ? cause.message : "Module check failed.", 403);
   }

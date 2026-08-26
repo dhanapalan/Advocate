@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { decryptField, encryptField } from "@/lib/field-encryption";
+import { requireModule } from "@/lib/require-module";
 
 // Tenant-scoped hearings CRUD. Same trust model as matters.functions.ts:
 // tenant_id is never accepted from the client, it's DB-derived.
@@ -9,6 +10,7 @@ import { decryptField, encryptField } from "@/lib/field-encryption";
 export const listHearings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    await requireModule(context.supabase, context.userId, "diary");
     const { data, error } = await context.supabase
       .from("hearings")
       .select("id, matter_title, court, hearing_date, hearing_time, purpose, status, created_at")
@@ -34,6 +36,7 @@ export const createHearing = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "diary");
     const { data: saved, error } = await context.supabase
       .from("hearings")
       .insert({
@@ -61,6 +64,7 @@ export const listMatterHearings = createServerFn({ method: "GET" })
     z.object({ matterId: z.string().uuid(), matterTitle: z.string().min(1) }).parse(data),
   )
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "diary");
     const columns =
       "id, matter_id, matter_title, court, hearing_date, hearing_time, purpose, status, court_hall, bench, cause_list_record_id, created_at";
     const [byIdRes, byTitleRes] = await Promise.all([
@@ -88,6 +92,7 @@ export const updateHearingStatus = createServerFn({ method: "POST" })
       .parse(data),
   )
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "diary");
     const { error } = await context.supabase
       .from("hearings")
       .update({ status: data.status })

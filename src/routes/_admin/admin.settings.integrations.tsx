@@ -22,21 +22,29 @@ type Integrations = {
   ai_drafting_enabled?: boolean;
   ai_assistant_enabled?: boolean;
   matter_intelligence_enabled?: boolean;
-  ocr_enabled?: boolean;
-  dictation_enabled?: boolean;
+  matters_enabled?: boolean;
+  clients_enabled?: boolean;
+  diary_enabled?: boolean;
+  documents_enabled?: boolean;
+  billing_enabled?: boolean;
 };
 
 // Mirrors module_price_inr() in the database (supabase/migrations/
-// 20260826100000_module_pricing.sql) — PLACEHOLDER pricing (Rs 499 across
-// the board, flat per tenant regardless of seats), explicitly provisional
-// per user decision: ship the calculation now, set real prices later.
-// Update both together.
+// 20260826100000_module_pricing.sql, 20260826110000_feature_area_modules.sql)
+// — PLACEHOLDER pricing (Rs 499 across the board, flat per tenant regardless
+// of seats), explicitly provisional per user decision: ship the calculation
+// now, set real prices later. Update both together. OCR/Dictation retired
+// into Documents/AI Drafting respectively (20260826 module-selling pivot) —
+// no standalone rows for them any more.
 const MODULES: { key: keyof Integrations; label: string; priceInr: number }[] = [
-  { key: "ai_drafting_enabled", label: "AI Drafting", priceInr: 499 },
+  { key: "matters_enabled", label: "Case/Matter Tracking", priceInr: 499 },
+  { key: "clients_enabled", label: "Client Management", priceInr: 499 },
+  { key: "diary_enabled", label: "Court Diary & Cause List", priceInr: 499 },
+  { key: "documents_enabled", label: "Documents (incl. OCR)", priceInr: 499 },
+  { key: "billing_enabled", label: "Time Tracking & Billing", priceInr: 499 },
+  { key: "ai_drafting_enabled", label: "AI Drafting (incl. Dictation)", priceInr: 499 },
   { key: "ai_assistant_enabled", label: "AI Case Assistant", priceInr: 499 },
   { key: "matter_intelligence_enabled", label: "Matter Intelligence", priceInr: 499 },
-  { key: "ocr_enabled", label: "OCR Document Intake", priceInr: 499 },
-  { key: "dictation_enabled", label: "Dictation", priceInr: 499 },
 ];
 type TenantIntegrations = {
   id: string;

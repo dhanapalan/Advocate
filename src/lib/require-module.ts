@@ -1,7 +1,12 @@
-// 'ocr' and 'dictation' were retired into 'documents' and 'ai_drafting'
-// respectively (20260826110000_feature_area_modules.sql) — both wrote into
-// a table the merged-into module already owns (ai_documents, ai_drafts),
-// and dictation had no entitlement check at all before the merge.
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
+
+// Worker-side twin of supabase/functions/_shared/modules.ts — same logic,
+// same "{module}_enabled" convention in licenses.integrations, same trial
+// bypass. Didn't exist before this migration: src/lib/*.functions.ts had no
+// paid-tier gate at all for matters/clients/diary/documents/billing, only
+// RLS (which stops cross-tenant access, but never gated "does this tenant's
+// own plan include this feature"). Port fixes to both copies.
 export type ModuleKey =
   | "ai_drafting"
   | "ai_assistant"
@@ -23,21 +28,8 @@ const MODULE_LABELS: Record<ModuleKey, string> = {
   billing: "time tracking and billing",
 };
 
-/**
- * Per-tenant paid-module gate. Trial tenants get every module unlocked to
- * evaluate — same policy as the rest of the app (see
- * 20260820020000_trial_unlocks_all_features.sql). Once on a paid plan, a
- * module is available only once licenses.integrations has
- * "{module}_enabled": true set for it — opt-in, unlike the older governance
- * kill-switches (ai_morning_brief_enabled, ai_matter_intelligence_enabled,
- * ai_case_intelligence_enabled), which default to true and only ever turn a
- * feature OFF. Both kinds of flag live in the same JSONB column and can
- * coexist on the same feature: a kill-switch can still force a purchased
- * module off, but a kill-switch defaulting true never turns an unpurchased
- * module on. Toggled per tenant from /admin/settings/integrations.
- */
 export async function requireModule(
-  supabase: import("jsr:@supabase/supabase-js@2").SupabaseClient,
+  supabase: SupabaseClient<Database>,
   userId: string,
   moduleKey: ModuleKey,
 ): Promise<void> {

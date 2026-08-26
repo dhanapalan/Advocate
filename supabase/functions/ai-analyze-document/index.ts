@@ -22,7 +22,7 @@ Deno.serve(async (req) => {
   // Part of the OCR document-intake pipeline (scan → OCR → this AI review
   // step) — same module as ocr-extract, not its own separate purchase.
   try {
-    await requireModule(supabase, userId, "ocr");
+    await requireModule(supabase, userId, "documents");
   } catch (cause) {
     return errorResponse(req, cause instanceof Error ? cause.message : "Module check failed.", 403);
   }

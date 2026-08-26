@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { getOwnIntegrations } from "@/lib/tenant-integrations";
 import { decryptField } from "@/lib/field-encryption";
+import { requireModule } from "@/lib/require-module";
 
 // MatterContextService (K3) — the single, reusable place that assembles
 // everything LexDiary actually knows about one matter, tenant-scoped and
@@ -78,6 +79,10 @@ export const getMatterContext = createServerFn({ method: "GET" })
   .inputValidator((data: unknown) => z.object({ matterId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }): Promise<MatterContext | null> => {
     const { supabase } = context;
+    // Primary-module gate only — see morning-brief.functions.ts's
+    // getMorningBrief for the same rationale (Phase 0 scope, per-section
+    // feature-detection deferred to Phase 7).
+    await requireModule(supabase, context.userId, "matters");
 
     const { data: matterRow, error: matterError } = await supabase
       .from("matters")
@@ -234,6 +239,7 @@ export const getMatterDocumentTexts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ matterId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "matters");
     const { data: matterRow, error: matterError } = await context.supabase
       .from("matters")
       .select("title")
@@ -267,6 +273,7 @@ export const listMatterConversations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ matterId: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
+    await requireModule(context.supabase, context.userId, "matters");
     const { data: matterRow, error: matterError } = await context.supabase
       .from("matters")
       .select("title")

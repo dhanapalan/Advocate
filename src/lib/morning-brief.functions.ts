@@ -5,6 +5,7 @@ import { findClashKeys, isClashing } from "@/lib/hearing-conflicts";
 import { getOwnIntegrations } from "@/lib/tenant-integrations";
 import { todayIsoIST } from "@/lib/date-ist";
 import { decryptField } from "@/lib/field-encryption";
+import { requireModule } from "@/lib/require-module";
 
 // Deterministic aggregation for the Court Morning Brief. Every value here
 // comes straight from a real query — nothing is inferred or generated. The
@@ -110,6 +111,12 @@ export const getMorningBrief = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => z.object({ date: z.string().optional() }).parse(data ?? {}))
   .handler(async ({ data, context }) => {
+    // Primary-module gate only, per the microservices plan's Phase 0 scope —
+    // the Morning Brief is fundamentally a hearings aggregation, so it's
+    // gated on Diary as a whole rather than feature-detecting every section
+    // (matters/documents/billing) independently. That finer-grained
+    // degradation is Phase 7 (bright-toasting-thompson.md).
+    await requireModule(context.supabase, context.userId, "diary");
     const targetDate = data.date ?? todayIsoIST();
 
     const { data: profile } = await context.supabase

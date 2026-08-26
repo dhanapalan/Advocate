@@ -4,7 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Plus, Pencil, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { DataTable } from "@/components/app/primitives";
-import { createClient, deleteClient, listClients, updateClient } from "@/lib/matters.functions";
+import { createClient, deleteClient, listClients, updateClient } from "@/lib/clients.functions";
 import { getMyMembership } from "@/lib/team.functions";
 import { confirmPermanentRemoval } from "@/lib/confirm";
 
