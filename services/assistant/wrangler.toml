@@ -1,0 +1,12 @@
+name = "lexdiary-assistant"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Same public values as the main app's wrangler.toml — not secrets, safe to
+# duplicate. No FIELD_ENCRYPTION_KEY here: ai_conversations/ai_messages have
+# no encrypted free-text column — ai.functions.ts never called
+# encryptField/decryptField for these tables either.
+[vars]
+SUPABASE_URL = "https://cjcjfdwdlsdgyvshuncn.supabase.co"
+SUPABASE_PUBLISHABLE_KEY = "sb_publishable_DnB_8STNU8FST_sCkRAM4w_K9c8A4Ft"

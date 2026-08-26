@@ -3,7 +3,9 @@ import { useServerFn } from "@tanstack/react-start";
 import { Loader2, Send, Sparkles } from "lucide-react";
 import { askMyCase, type AskCaseSource } from "@/lib/edge-functions";
 import { getMatterDocumentTexts, listMatterConversations } from "@/lib/matter-context.functions";
-import { listMessages } from "@/lib/ai.functions";
+// Calls the AI Assistant microservice (services/assistant/) directly —
+// not a TanStack server function, so no useServerFn wrapping.
+import { listMessages } from "@/lib/assistant-service";
 import type { MatterContext } from "@/lib/matter-context.functions";
 import { todayIsoIST } from "@/lib/date-ist";
 
@@ -37,7 +39,7 @@ function sourceLabel(source: AskCaseSource): string {
 export function AskMyCase({ context }: { context: MatterContext }) {
   const loadDocumentTexts = useServerFn(getMatterDocumentTexts);
   const loadConversations = useServerFn(listMatterConversations);
-  const loadMessages = useServerFn(listMessages);
+  const loadMessages = listMessages;
 
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -54,7 +56,7 @@ export function AskMyCase({ context }: { context: MatterContext }) {
       const latest = (rows as { id: string }[])[0];
       if (!latest) return;
       setConversationId(latest.id);
-      const rows2 = (await loadMessages({ data: { conversationId: latest.id } })) as {
+      const rows2 = (await loadMessages({ conversationId: latest.id })) as {
         id: string;
         role: string;
         content: string;

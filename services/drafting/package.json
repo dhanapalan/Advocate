@@ -1,0 +1,19 @@
+{
+  "name": "lexdiary-drafting",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:dry-run": "wrangler deploy --dry-run"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20250101.0",
+    "@types/node": "^22.16.5",
+    "typescript": "^5.8.3",
+    "wrangler": "^4.118.0"
+  }
+}

@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { useServerFn } from "@tanstack/react-start";
 import {
   Mic,
   Square,
@@ -14,11 +13,12 @@ import {
 } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { Tag, type Tone } from "@/components/app/primitives";
-import { listDrafts, saveDictatedDraft } from "@/lib/ai.functions";
 import { formatDictation, transcribeDictation } from "@/lib/edge-functions";
-// Calls the Matters microservice (services/matters/) directly — not a
-// TanStack server function, so no useServerFn wrapping.
+// Calls the Matters/Drafting microservices (services/matters/,
+// services/drafting/) directly — not TanStack server functions, so no
+// useServerFn wrapping.
 import { listMatters } from "@/lib/matters-service";
+import { listDrafts, saveDictatedDraft } from "@/lib/drafting-service";
 import { blobToBase64, startRecording, type Recorder } from "@/lib/wav-recorder";
 import { cn } from "@/lib/utils";
 
@@ -98,8 +98,8 @@ type StepKey = (typeof STEPS)[number]["key"];
 
 function Dictation() {
   const loadMatters = listMatters;
-  const loadDrafts = useServerFn(listDrafts);
-  const persistDictation = useServerFn(saveDictatedDraft);
+  const loadDrafts = listDrafts;
+  const persistDictation = saveDictatedDraft;
 
   const [step, setStep] = useState<StepKey>("record");
   const [recording, setRecording] = useState(false);
@@ -212,9 +212,7 @@ function Dictation() {
     setSaving(true);
     setError(null);
     try {
-      await persistDictation({
-        data: { docType, matterRef: matter || undefined, content: draft },
-      });
+      await persistDictation({ docType, matterRef: matter || undefined, content: draft });
       setSaved(true);
       await refreshRecentDictations();
     } catch (cause) {

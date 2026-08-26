@@ -1,14 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
 import { Check, FileText, Loader2, Printer, Save, Sparkles, X } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { Tag, type Tone } from "@/components/app/primitives";
-import { listDrafts, saveDraft, updateDraftStatus } from "@/lib/ai.functions";
 import { generateDraft } from "@/lib/edge-functions";
-// Calls the Matters microservice (services/matters/) directly — not a
-// TanStack server function, so no useServerFn wrapping.
+// Calls the Matters/Drafting microservices (services/matters/,
+// services/drafting/) directly — not TanStack server functions, so no
+// useServerFn wrapping.
 import { listMatters } from "@/lib/matters-service";
+import { listDrafts, saveDraft, updateDraftStatus } from "@/lib/drafting-service";
 
 export const Route = createFileRoute("/_authenticated/app/drafting")({
   head: () => ({
@@ -67,10 +67,10 @@ const DOC_TYPES = [
 ] as const;
 
 function Drafting() {
-  const load = useServerFn(listDrafts);
-  const persist = useServerFn(saveDraft);
+  const load = listDrafts;
+  const persist = saveDraft;
   const loadMatters = listMatters;
-  const setReviewStatus = useServerFn(updateDraftStatus);
+  const setReviewStatus = updateDraftStatus;
 
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [matters, setMatters] = useState<MatterOption[]>([]);
@@ -111,7 +111,7 @@ function Drafting() {
     setActive({ ...active, status });
     setDrafts((prev) => prev.map((d) => (d.id === active.id ? { ...d, status } : d)));
     try {
-      await setReviewStatus({ data: { id: active.id, status } });
+      await setReviewStatus({ id: active.id, status });
     } catch {
       void load()
         .then((rows) => setDrafts(rows as Draft[]))
@@ -142,7 +142,7 @@ function Drafting() {
     if (!active) return;
     setSaving(true);
     try {
-      await persist({ data: { id: active.id, content: active.content } });
+      await persist({ id: active.id, content: active.content });
     } finally {
       setSaving(false);
     }

@@ -99,14 +99,15 @@ const SECURITY_HEADERS: Record<string, string> = {
     // connection needs the WebSocket scheme explicitly: connect-src doesn't
     // treat https:// as also covering wss:// on the same origin.
     // lexdiary-clients.* / lexdiary-matters.* / lexdiary-diary.* /
-    // lexdiary-documents.* / lexdiary-billing.* are the Clients/Matters/
-    // Diary/Documents/Billing microservices (services/clients/,
+    // lexdiary-documents.* / lexdiary-billing.* / lexdiary-drafting.* /
+    // lexdiary-assistant.* are the microservices (services/clients/,
     // services/matters/, services/diary/, services/documents/,
-    // services/billing/) — called directly from the browser, see
-    // src/lib/clients-service.ts, src/lib/matters-service.ts,
-    // src/lib/diary-service.ts, src/lib/documents-service.ts and
-    // src/lib/billing-service.ts.
-    "connect-src 'self' https://cjcjfdwdlsdgyvshuncn.supabase.co wss://cjcjfdwdlsdgyvshuncn.supabase.co https://api.openai.com https://lexdiary-clients.dhanapalan-advocate.workers.dev https://lexdiary-matters.dhanapalan-advocate.workers.dev https://lexdiary-diary.dhanapalan-advocate.workers.dev https://lexdiary-documents.dhanapalan-advocate.workers.dev https://lexdiary-billing.dhanapalan-advocate.workers.dev",
+    // services/billing/, services/drafting/, services/assistant/) —
+    // called directly from the browser, see src/lib/clients-service.ts,
+    // src/lib/matters-service.ts, src/lib/diary-service.ts,
+    // src/lib/documents-service.ts, src/lib/billing-service.ts,
+    // src/lib/drafting-service.ts and src/lib/assistant-service.ts.
+    "connect-src 'self' https://cjcjfdwdlsdgyvshuncn.supabase.co wss://cjcjfdwdlsdgyvshuncn.supabase.co https://api.openai.com https://lexdiary-clients.dhanapalan-advocate.workers.dev https://lexdiary-matters.dhanapalan-advocate.workers.dev https://lexdiary-diary.dhanapalan-advocate.workers.dev https://lexdiary-documents.dhanapalan-advocate.workers.dev https://lexdiary-billing.dhanapalan-advocate.workers.dev https://lexdiary-drafting.dhanapalan-advocate.workers.dev https://lexdiary-assistant.dhanapalan-advocate.workers.dev",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

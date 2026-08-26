@@ -1,15 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useRef, useState } from "react";
 import { Bot, Loader2, Plus, Send, Trash2, User } from "lucide-react";
 import { AppShell } from "@/components/app/AppShell";
 import { confirmPermanentRemoval } from "@/lib/confirm";
 import { Markdown } from "@/components/app/Markdown";
-import { deleteConversation, listConversations, listMessages } from "@/lib/ai.functions";
 import { askAssistant } from "@/lib/edge-functions";
-// Calls the Matters microservice (services/matters/) directly — not a
-// TanStack server function, so no useServerFn wrapping.
+// Calls the Matters/AI-Assistant microservices (services/matters/,
+// services/assistant/) directly — not TanStack server functions, so no
+// useServerFn wrapping.
 import { listMatters } from "@/lib/matters-service";
+import { deleteConversation, listConversations, listMessages } from "@/lib/assistant-service";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/app/assistant")({
@@ -46,9 +46,9 @@ const SUGGESTIONS = [
 ];
 
 function Assistant() {
-  const loadThreads = useServerFn(listConversations);
-  const loadMessages = useServerFn(listMessages);
-  const removeThread = useServerFn(deleteConversation);
+  const loadThreads = listConversations;
+  const loadMessages = listMessages;
+  const removeThread = deleteConversation;
   const loadMatters = listMatters;
 
   const [threads, setThreads] = useState<Thread[]>([]);
@@ -80,7 +80,7 @@ function Assistant() {
       setMessages([]);
       return;
     }
-    void loadMessages({ data: { conversationId: activeId } })
+    void loadMessages({ conversationId: activeId })
       .then((rows) => setMessages(rows as Message[]))
       .catch(() => setMessages([]));
   }, [activeId, loadMessages]);
@@ -122,7 +122,7 @@ function Assistant() {
       !confirmPermanentRemoval(`the conversation "${title}"`, "Its messages are deleted with it.")
     )
       return;
-    await removeThread({ data: { conversationId: id } });
+    await removeThread({ conversationId: id });
     if (activeId === id) setActiveId(null);
     setThreads(await loadThreads());
   }

@@ -1,0 +1,13 @@
+name = "lexdiary-drafting"
+main = "src/index.ts"
+compatibility_date = "2025-06-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Same public values as the main app's wrangler.toml — not secrets, safe to
+# duplicate. FIELD_ENCRYPTION_KEY is set separately via `wrangler secret put`
+# and is its own independent value — see src/field-encryption.ts's comment
+# for why that's safe (the one pre-existing ai_drafts.content row is
+# unencrypted legacy plaintext, unaffected by which key this service holds).
+[vars]
+SUPABASE_URL = "https://cjcjfdwdlsdgyvshuncn.supabase.co"
+SUPABASE_PUBLISHABLE_KEY = "sb_publishable_DnB_8STNU8FST_sCkRAM4w_K9c8A4Ft"
