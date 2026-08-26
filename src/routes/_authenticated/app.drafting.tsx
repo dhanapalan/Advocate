@@ -6,7 +6,9 @@ import { AppShell } from "@/components/app/AppShell";
 import { Tag, type Tone } from "@/components/app/primitives";
 import { listDrafts, saveDraft, updateDraftStatus } from "@/lib/ai.functions";
 import { generateDraft } from "@/lib/edge-functions";
-import { listMatters } from "@/lib/matters.functions";
+// Calls the Matters microservice (services/matters/) directly — not a
+// TanStack server function, so no useServerFn wrapping.
+import { listMatters } from "@/lib/matters-service";
 
 export const Route = createFileRoute("/_authenticated/app/drafting")({
   head: () => ({
@@ -67,7 +69,7 @@ const DOC_TYPES = [
 function Drafting() {
   const load = useServerFn(listDrafts);
   const persist = useServerFn(saveDraft);
-  const loadMatters = useServerFn(listMatters);
+  const loadMatters = listMatters;
   const setReviewStatus = useServerFn(updateDraftStatus);
 
   const [drafts, setDrafts] = useState<Draft[]>([]);

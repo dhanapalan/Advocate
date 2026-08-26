@@ -4,8 +4,9 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { decryptField, encryptField } from "@/lib/field-encryption";
 import { requireModule } from "@/lib/require-module";
 
-// Tenant-scoped hearings CRUD. Same trust model as matters.functions.ts:
-// tenant_id is never accepted from the client, it's DB-derived.
+// Tenant-scoped hearings CRUD. Same trust model as every other server
+// function here: tenant_id is never accepted from the client, it's
+// DB-derived via RLS.
 
 export const listHearings = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

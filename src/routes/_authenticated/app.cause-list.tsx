@@ -5,7 +5,9 @@ import { AlertTriangle, Check, ChevronDown, History, Loader2, Plus, Upload, X } 
 import { toast } from "sonner";
 import { AppShell } from "@/components/app/AppShell";
 import { StatCard, Tag, type Tone } from "@/components/app/primitives";
-import { listMatters } from "@/lib/matters.functions";
+// Calls the Matters microservice (services/matters/) directly — not a
+// TanStack server function, so no useServerFn wrapping.
+import { listMatters } from "@/lib/matters-service";
 import { todayIsoIST } from "@/lib/date-ist";
 import {
   createCauseListSource,
@@ -84,7 +86,7 @@ function CauseListIntelligence() {
   const addSource = useServerFn(createCauseListSource);
   const toggleSource = useServerFn(setCauseListSourceEnabled);
   const loadEntries = useServerFn(listCauseListEntries);
-  const loadMatters = useServerFn(listMatters);
+  const loadMatters = listMatters;
   const runIngest = useServerFn(ingestCauseList);
   const doMatch = useServerFn(matchMatterManually);
   const doReject = useServerFn(rejectCauseListMatch);

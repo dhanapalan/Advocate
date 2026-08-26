@@ -16,7 +16,9 @@ import { AppShell } from "@/components/app/AppShell";
 import { Tag, type Tone } from "@/components/app/primitives";
 import { listDrafts, saveDictatedDraft } from "@/lib/ai.functions";
 import { formatDictation, transcribeDictation } from "@/lib/edge-functions";
-import { listMatters } from "@/lib/matters.functions";
+// Calls the Matters microservice (services/matters/) directly — not a
+// TanStack server function, so no useServerFn wrapping.
+import { listMatters } from "@/lib/matters-service";
 import { blobToBase64, startRecording, type Recorder } from "@/lib/wav-recorder";
 import { cn } from "@/lib/utils";
 
@@ -95,7 +97,7 @@ const LANGUAGES = [
 type StepKey = (typeof STEPS)[number]["key"];
 
 function Dictation() {
-  const loadMatters = useServerFn(listMatters);
+  const loadMatters = listMatters;
   const loadDrafts = useServerFn(listDrafts);
   const persistDictation = useServerFn(saveDictatedDraft);
 

@@ -19,10 +19,10 @@ import { requireModule } from "@/lib/require-module";
 import type { Database } from "@/integrations/supabase/types";
 
 // Tenant-scoped cause-list CRUD, ingestion and matching. Same trust model as
-// matters.functions.ts/diary.functions.ts: tenant_id is never accepted from
-// the client, RLS derives and enforces it. No AI is involved anywhere in
-// this file — matching, change detection and reconciliation are pure,
-// explainable logic (see cause-list-matching.ts / cause-list-changes.ts).
+// diary.functions.ts: tenant_id is never accepted from the client, RLS
+// derives and enforces it. No AI is involved anywhere in this file —
+// matching, change detection and reconciliation are pure, explainable logic
+// (see cause-list-matching.ts / cause-list-changes.ts).
 
 type CauseListRecordRow = Database["public"]["Tables"]["cause_list_records"]["Row"];
 type CauseListMatchRow = Database["public"]["Tables"]["cause_list_matches"]["Row"];

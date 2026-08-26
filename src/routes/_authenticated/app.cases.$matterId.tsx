@@ -8,7 +8,9 @@ import { MatterTimeline } from "@/components/app/MatterTimeline";
 import { MatterAiSummary } from "@/components/app/MatterAiSummary";
 import { AskMyCase } from "@/components/app/AskMyCase";
 import { getMatterContext, type MatterContext } from "@/lib/matter-context.functions";
-import { updateMatter, deleteMatter } from "@/lib/matters.functions";
+// Calls the Matters microservice (services/matters/) directly from the
+// browser — not a TanStack server function, so no useServerFn wrapping.
+import { updateMatter, deleteMatter } from "@/lib/matters-service";
 import { getMyMembership } from "@/lib/team.functions";
 import { buildMatterTimeline } from "@/lib/matter-timeline";
 import { todayIsoIST } from "@/lib/date-ist";
@@ -37,8 +39,8 @@ function MatterDetail() {
   const { matterId } = Route.useParams();
   const navigate = useNavigate();
   const loadContext = useServerFn(getMatterContext);
-  const saveMatter = useServerFn(updateMatter);
-  const removeMatter = useServerFn(deleteMatter);
+  const saveMatter = updateMatter;
+  const removeMatter = deleteMatter;
   const loadMembership = useServerFn(getMyMembership);
 
   const [context, setContext] = useState<MatterContext | null | undefined>(undefined);
@@ -103,17 +105,15 @@ function MatterDetail() {
     setFormError(null);
     try {
       const saved = await saveMatter({
-        data: {
-          matterId,
-          title: editForm.title.trim(),
-          clientName: editForm.clientName.trim() || undefined,
-          caseNumber: editForm.caseNumber.trim() || undefined,
-          court: editForm.court.trim() || undefined,
-          opposingParty: editForm.opposingParty.trim() || undefined,
-          filedDate: editForm.filedDate || undefined,
-          status: editForm.status,
-          notes: editForm.notes.trim() || undefined,
-        },
+        matterId,
+        title: editForm.title.trim(),
+        clientName: editForm.clientName.trim() || undefined,
+        caseNumber: editForm.caseNumber.trim() || undefined,
+        court: editForm.court.trim() || undefined,
+        opposingParty: editForm.opposingParty.trim() || undefined,
+        filedDate: editForm.filedDate || undefined,
+        status: editForm.status,
+        notes: editForm.notes.trim() || undefined,
       });
       setContext((prev) =>
         prev
@@ -153,7 +153,7 @@ function MatterDetail() {
     setDeleting(true);
     setFormError(null);
     try {
-      await removeMatter({ data: { matterId } });
+      await removeMatter({ matterId });
       void navigate({ to: "/app/cases" });
     } catch (cause) {
       setFormError(cause instanceof Error ? cause.message : "Failed to delete this matter.");

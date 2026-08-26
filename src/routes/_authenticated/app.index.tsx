@@ -5,7 +5,9 @@ import { AppShell } from "@/components/app/AppShell";
 import { CourtMorningBrief } from "@/components/app/CourtMorningBrief";
 import { DataTable, StatCard, Tag, type Tone } from "@/components/app/primitives";
 import { listHearings } from "@/lib/diary.functions";
-import { listMatters } from "@/lib/matters.functions";
+// Calls the Matters microservice (services/matters/) directly — not a
+// TanStack server function, so no useServerFn wrapping.
+import { listMatters } from "@/lib/matters-service";
 import { listInvoices, listTimeEntries } from "@/lib/billing.functions";
 import { addDaysIso, isoWeekday, todayIsoIST } from "@/lib/date-ist";
 
@@ -82,7 +84,7 @@ function rupees(value: number): string {
 }
 
 function Dashboard() {
-  const loadMatters = useServerFn(listMatters);
+  const loadMatters = listMatters;
   const loadHearings = useServerFn(listHearings);
   const loadTimeEntries = useServerFn(listTimeEntries);
   const loadInvoices = useServerFn(listInvoices);

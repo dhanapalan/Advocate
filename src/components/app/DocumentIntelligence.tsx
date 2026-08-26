@@ -5,7 +5,9 @@ import { Brain, Camera, Check, Loader2, PenLine, Upload, X } from "lucide-react"
 import { Tag, type Tone } from "@/components/app/primitives";
 import { listDocumentAnalyses, updateDocumentAnalysisStatus } from "@/lib/ai.functions";
 import { analyzeDocument, ocrExtract } from "@/lib/edge-functions";
-import { listMatters } from "@/lib/matters.functions";
+// Calls the Matters microservice (services/matters/) directly — not a
+// TanStack server function, so no useServerFn wrapping.
+import { listMatters } from "@/lib/matters-service";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -60,7 +62,7 @@ function asKeyDates(value: unknown): { date?: string; what?: string }[] {
 
 export function DocumentIntelligence() {
   const load = useServerFn(listDocumentAnalyses);
-  const loadMatters = useServerFn(listMatters);
+  const loadMatters = listMatters;
   const setReviewStatus = useServerFn(updateDocumentAnalysisStatus);
 
   const [items, setItems] = useState<Analysis[]>([]);
@@ -157,9 +159,8 @@ export function DocumentIntelligence() {
       </div>
       <p className="mt-1.5 text-sm text-muted-foreground">
         Scan a document with your camera (English, Hindi, Tamil, Telugu, Kannada or Malayalam),
-        upload a text extract, or paste
-        document text — AI returns a summary, parties, key dates, tags and drafting risks, saved to
-        your account.
+        upload a text extract, or paste document text — AI returns a summary, parties, key dates,
+        tags and drafting risks, saved to your account.
       </p>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-[280px_1fr] [&>*]:min-w-0">

@@ -98,9 +98,11 @@ const SECURITY_HEADERS: Record<string, string> = {
     // wss:// alongside https:// for the same host: Realtime's socket
     // connection needs the WebSocket scheme explicitly: connect-src doesn't
     // treat https:// as also covering wss:// on the same origin.
-    // lexdiary-clients.* is the Clients microservice (services/clients/) —
-    // called directly from the browser, see src/lib/clients-service.ts.
-    "connect-src 'self' https://cjcjfdwdlsdgyvshuncn.supabase.co wss://cjcjfdwdlsdgyvshuncn.supabase.co https://api.openai.com https://lexdiary-clients.dhanapalan-advocate.workers.dev",
+    // lexdiary-clients.* / lexdiary-matters.* are the Clients/Matters
+    // microservices (services/clients/, services/matters/) — called
+    // directly from the browser, see src/lib/clients-service.ts and
+    // src/lib/matters-service.ts.
+    "connect-src 'self' https://cjcjfdwdlsdgyvshuncn.supabase.co wss://cjcjfdwdlsdgyvshuncn.supabase.co https://api.openai.com https://lexdiary-clients.dhanapalan-advocate.workers.dev https://lexdiary-matters.dhanapalan-advocate.workers.dev",
     "frame-ancestors 'none'",
     "base-uri 'self'",
     "form-action 'self'",

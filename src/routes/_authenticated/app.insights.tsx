@@ -6,7 +6,9 @@ import { AppShell } from "@/components/app/AppShell";
 import { Markdown } from "@/components/app/Markdown";
 import { generateBriefing } from "@/lib/edge-functions";
 import { listHearings } from "@/lib/diary.functions";
-import { listMatters } from "@/lib/matters.functions";
+// Calls the Matters microservice (services/matters/) directly — not a
+// TanStack server function, so no useServerFn wrapping.
+import { listMatters } from "@/lib/matters-service";
 import { todayIsoIST } from "@/lib/date-ist";
 
 export const Route = createFileRoute("/_authenticated/app/insights")({
@@ -89,7 +91,7 @@ function buildContext(matters: Matter[], hearings: Hearing[]) {
 }
 
 function Insights() {
-  const loadMatters = useServerFn(listMatters);
+  const loadMatters = listMatters;
   const loadHearings = useServerFn(listHearings);
   const [matters, setMatters] = useState<Matter[]>([]);
   const [hearings, setHearings] = useState<Hearing[]>([]);

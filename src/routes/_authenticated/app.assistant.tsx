@@ -7,7 +7,9 @@ import { confirmPermanentRemoval } from "@/lib/confirm";
 import { Markdown } from "@/components/app/Markdown";
 import { deleteConversation, listConversations, listMessages } from "@/lib/ai.functions";
 import { askAssistant } from "@/lib/edge-functions";
-import { listMatters } from "@/lib/matters.functions";
+// Calls the Matters microservice (services/matters/) directly — not a
+// TanStack server function, so no useServerFn wrapping.
+import { listMatters } from "@/lib/matters-service";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/app/assistant")({
@@ -47,7 +49,7 @@ function Assistant() {
   const loadThreads = useServerFn(listConversations);
   const loadMessages = useServerFn(listMessages);
   const removeThread = useServerFn(deleteConversation);
-  const loadMatters = useServerFn(listMatters);
+  const loadMatters = listMatters;
 
   const [threads, setThreads] = useState<Thread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
