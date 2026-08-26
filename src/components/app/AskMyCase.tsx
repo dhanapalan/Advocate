@@ -51,27 +51,34 @@ export function AskMyCase({ context }: { context: MatterContext }) {
   useEffect(() => {
     if (!context.askCaseEnabled) return;
     let cancelled = false;
-    void loadConversations({ data: { matterId: context.matter.id } }).then(async (rows) => {
-      if (cancelled) return;
-      const latest = (rows as { id: string }[])[0];
-      if (!latest) return;
-      setConversationId(latest.id);
-      const rows2 = (await loadMessages({ conversationId: latest.id })) as {
-        id: string;
-        role: string;
-        content: string;
-        sources: AskCaseSource[] | null;
-      }[];
-      if (cancelled) return;
-      setMessages(
-        rows2.map((m) => ({
-          id: m.id,
-          role: m.role === "assistant" ? "assistant" : "user",
-          content: m.content,
-          sources: m.sources ?? [],
-        })),
-      );
-    });
+    void loadConversations({ data: { matterId: context.matter.id } })
+      .then(async (rows) => {
+        if (cancelled) return;
+        const latest = (rows as { id: string }[])[0];
+        if (!latest) return;
+        setConversationId(latest.id);
+        const rows2 = (await loadMessages({ conversationId: latest.id })) as {
+          id: string;
+          role: string;
+          content: string;
+          sources: AskCaseSource[] | null;
+        }[];
+        if (cancelled) return;
+        setMessages(
+          rows2.map((m) => ({
+            id: m.id,
+            role: m.role === "assistant" ? "assistant" : "user",
+            content: m.content,
+            sources: m.sources ?? [],
+          })),
+        );
+      })
+      .catch((cause) => {
+        if (cancelled) return;
+        setError(
+          cause instanceof Error ? cause.message : "Could not load this conversation's history.",
+        );
+      });
     return () => {
       cancelled = true;
     };

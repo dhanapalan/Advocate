@@ -64,14 +64,28 @@ export async function requireModule(
  * every key requested, same trial-bypass and "{module}_enabled" semantics
  * as requireModule(), just returning booleans instead of throwing. Phase 7
  * of the microservices plan (bright-toasting-thompson.md).
+ *
+ * Also returns the raw `integrations` object from the same license row —
+ * callers that also need older governance flags (ai_morning_brief_enabled,
+ * cause_list_enabled, ai_matter_intelligence_enabled, ai_case_intelligence_
+ * enabled) can read them off this instead of issuing a second, separate
+ * getOwnIntegrations() lookup of the identical profile+license row.
  */
 export async function getEnabledModules(
   supabase: SupabaseClient<Database>,
   userId: string,
   moduleKeys: ModuleKey[],
-): Promise<Record<ModuleKey, boolean>> {
-  const allDisabled = () =>
-    Object.fromEntries(moduleKeys.map((key) => [key, false])) as Record<ModuleKey, boolean>;
+): Promise<{
+  enabled: Record<ModuleKey, boolean>;
+  integrations: Record<string, boolean | undefined>;
+}> {
+  const allDisabled = () => ({
+    enabled: Object.fromEntries(moduleKeys.map((key) => [key, false])) as Record<
+      ModuleKey,
+      boolean
+    >,
+    integrations: {} as Record<string, boolean | undefined>,
+  });
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -89,7 +103,8 @@ export async function getEnabledModules(
 
   const isTrial = license.plan === "trial";
   const integrations = (license.integrations ?? {}) as Record<string, boolean | undefined>;
-  return Object.fromEntries(
+  const enabled = Object.fromEntries(
     moduleKeys.map((key) => [key, isTrial || integrations[`${key}_enabled`] === true]),
   ) as Record<ModuleKey, boolean>;
+  return { enabled, integrations };
 }

@@ -69,6 +69,15 @@ function normalizeCnrKey(raw: string): string {
 // below) — the atomic multi-row ingestCauseList path uses the
 // ingest_cause_list_row() Postgres function instead (see the
 // 20260826120000_atomic_cause_list_ingestion.sql migration comment for why).
+//
+// SYNC WARNING: this find-or-create logic (version-chain hearing, else
+// same-matter/same-date, else insert) is independently reimplemented in
+// ingest_cause_list_row()'s SQL — no test or type contract ties the two
+// together, only this comment. If you change the matching precedence, the
+// insert/update fields, or any other part of this logic, the SQL function
+// (20260826120000_atomic_cause_list_ingestion.sql, and any later migration
+// that CREATE OR REPLACEs it) needs the identical change, or the automated
+// cause-list-ingest path and this manual-match path will silently diverge.
 async function reconcileHearing(
   supabase: SupabaseClient,
   userId: string,

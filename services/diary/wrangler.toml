@@ -5,9 +5,13 @@ compatibility_flags = ["nodejs_compat"]
 
 # Same public values as the main app's wrangler.toml — not secrets, safe to
 # duplicate. FIELD_ENCRYPTION_KEY is set separately via `wrangler secret put`
-# and is its own independent value (see services/clients/wrangler.toml's
-# comment for the same reasoning — verified zero pre-existing
-# hearings.purpose ciphertext before this extraction).
+# and MUST be the same value as the main app's own FIELD_ENCRYPTION_KEY
+# (and the Supabase Edge Functions secret of the same name) — this service
+# writes hearings.purpose, which src/lib/morning-brief.functions.ts and
+# src/lib/matter-context.functions.ts (main app) read back. A code-review
+# fix reunified these after an earlier version of this service used its own
+# independently-generated key, which made every hearing purpose created
+# through this service undecryptable elsewhere.
 [vars]
 SUPABASE_URL = "https://cjcjfdwdlsdgyvshuncn.supabase.co"
 SUPABASE_PUBLISHABLE_KEY = "sb_publishable_DnB_8STNU8FST_sCkRAM4w_K9c8A4Ft"

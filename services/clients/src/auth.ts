@@ -23,8 +23,15 @@ export function authedClient(req: Request): { supabase: SupabaseClient; token: s
   return { supabase, token };
 }
 
-export async function requireUserId(supabase: SupabaseClient): Promise<string | null> {
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return null;
-  return data.user.id;
+// getClaims(token) verifies the JWT locally against cached JWKS — same
+// verification path as the main app's requireSupabaseAuth middleware, and
+// unlike getUser() (no argument), doesn't require a live round-trip to
+// Supabase's Auth server on every single request.
+export async function requireUserId(
+  supabase: SupabaseClient,
+  token: string,
+): Promise<string | null> {
+  const { data, error } = await supabase.auth.getClaims(token);
+  if (error || !data?.claims?.sub) return null;
+  return data.claims.sub;
 }

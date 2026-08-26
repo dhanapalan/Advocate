@@ -5,9 +5,12 @@ compatibility_flags = ["nodejs_compat"]
 
 # Same public values as the main app's wrangler.toml — not secrets, safe to
 # duplicate. FIELD_ENCRYPTION_KEY is set separately via `wrangler secret put`
-# and is its own independent value — see src/field-encryption.ts's comment
-# for why that's safe (the one pre-existing ai_drafts.content row is
-# unencrypted legacy plaintext, unaffected by which key this service holds).
+# and MUST be the same value as the Supabase Edge Functions secret of the
+# same name (and the main app's) — the ai-generate-draft Edge Function
+# writes ai_drafts.content with that key, and this service reads it back. A
+# code-review fix reunified these after an earlier version of this service
+# used its own independently-generated key, which made every AI-generated
+# draft undecryptable here.
 [vars]
 SUPABASE_URL = "https://cjcjfdwdlsdgyvshuncn.supabase.co"
 SUPABASE_PUBLISHABLE_KEY = "sb_publishable_DnB_8STNU8FST_sCkRAM4w_K9c8A4Ft"

@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { findClashKeys, isClashing } from "@/lib/hearing-conflicts";
-import { getOwnIntegrations } from "@/lib/tenant-integrations";
 import { todayIsoIST } from "@/lib/date-ist";
 import { decryptField } from "@/lib/field-encryption";
 import { requireModule, getEnabledModules } from "@/lib/require-module";
@@ -118,11 +117,14 @@ export const getMorningBrief = createServerFn({ method: "GET" })
     // item rather than the whole brief erroring or (worse) silently reading
     // tables the tenant hasn't purchased access to.
     await requireModule(context.supabase, context.userId, "diary");
-    const enabledModules = await getEnabledModules(context.supabase, context.userId, [
-      "matters",
-      "documents",
-      "billing",
-    ]);
+    // getEnabledModules also returns the license's raw integrations object,
+    // so the governance flags below reuse that instead of a separate
+    // getOwnIntegrations() call re-fetching the same profile+license row.
+    const { enabled: enabledModules, integrations } = await getEnabledModules(
+      context.supabase,
+      context.userId,
+      ["matters", "documents", "billing"],
+    );
     const targetDate = data.date ?? todayIsoIST();
 
     const { data: profile } = await context.supabase
@@ -139,7 +141,6 @@ export const getMorningBrief = createServerFn({ method: "GET" })
     // all — the real enforcement, which this can't bypass, lives in the
     // ai-morning-brief edge function, which checks the same flag itself
     // before ever calling the AI service layer.
-    const integrations = await getOwnIntegrations(context.supabase, context.userId);
     const aiEnabled = integrations.ai_morning_brief_enabled ?? true;
     const causeListEnabled = integrations.cause_list_enabled ?? true;
 

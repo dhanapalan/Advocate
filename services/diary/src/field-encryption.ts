@@ -1,8 +1,9 @@
 // Twin of src/lib/field-encryption.ts / supabase/functions/_shared/
 // field-encryption.ts — same AES-256-GCM-via-Web-Crypto scheme, same "enc:"
-// prefix convention. Uses its OWN FIELD_ENCRYPTION_KEY secret, independent
-// of the main app's — see wrangler.toml's comment for why that's safe (zero
-// pre-existing hearings.purpose ciphertext at extraction time).
+// prefix convention, and the SAME FIELD_ENCRYPTION_KEY secret value as both
+// — see wrangler.toml's comment for why (this service writes
+// hearings.purpose, which the main app reads back and must be able to
+// decrypt).
 const ALGO = "AES-GCM";
 const IV_LENGTH = 12;
 const PREFIX = "enc:";

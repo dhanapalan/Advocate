@@ -1,10 +1,9 @@
 // Twin of src/lib/field-encryption.ts / supabase/functions/_shared/
 // field-encryption.ts — same AES-256-GCM-via-Web-Crypto scheme, same "enc:"
-// prefix convention. Uses its OWN FIELD_ENCRYPTION_KEY secret, independent
-// of the main app's — see wrangler.toml's comment for why that's safe (the
-// one pre-existing ai_drafts.content row is unencrypted legacy plaintext,
-// and decryptField() passes plaintext through unchanged when it lacks the
-// "enc:" prefix, so a fresh key reads it correctly regardless).
+// prefix convention, and the SAME FIELD_ENCRYPTION_KEY secret value as both
+// — see wrangler.toml's comment for why (the ai-generate-draft Edge
+// Function writes ai_drafts.content with that key; this service must read
+// it back with the same one).
 const ALGO = "AES-GCM";
 const IV_LENGTH = 12;
 const PREFIX = "enc:";

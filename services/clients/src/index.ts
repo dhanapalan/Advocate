@@ -33,6 +33,12 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
+// The deleted clients.functions.ts validated this with Zod's z.string().email()
+// — this is the format check that was dropped when the handler moved here.
+function isValidEmail(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 async function listClients(req: Request, supabase: SupabaseClient) {
   const { data, error } = await supabase
     .from("clients")
@@ -58,6 +64,9 @@ async function createClient(req: Request, supabase: SupabaseClient, userId: stri
   }
   if (!body.name || body.name.trim().length < 2) {
     return errorResponse(req, "name must be at least 2 characters");
+  }
+  if (body.email && !isValidEmail(body.email)) {
+    return errorResponse(req, "email must be a valid email address");
   }
 
   const { data: saved, error } = await supabase
@@ -85,6 +94,9 @@ async function updateClient(req: Request, supabase: SupabaseClient, clientId: st
   }
   if (!body.name || body.name.trim().length < 2) {
     return errorResponse(req, "name must be at least 2 characters");
+  }
+  if (body.email && !isValidEmail(body.email)) {
+    return errorResponse(req, "email must be a valid email address");
   }
 
   const { data: saved, error } = await supabase
@@ -122,7 +134,7 @@ export default {
 
     const auth = authedClient(req);
     if (!auth) return errorResponse(req, "Unauthorized", 401);
-    const userId = await requireUserId(auth.supabase);
+    const userId = await requireUserId(auth.supabase, auth.token);
     if (!userId) return errorResponse(req, "Unauthorized", 401);
 
     try {

@@ -67,7 +67,7 @@ export default {
 
     const auth = authedClient(req);
     if (!auth) return errorResponse(req, "Unauthorized", 401);
-    const userId = await requireUserId(auth.supabase);
+    const userId = await requireUserId(auth.supabase, auth.token);
     if (!userId) return errorResponse(req, "Unauthorized", 401);
 
     try {
