@@ -14,3 +14,12 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 SUPABASE_URL = "https://cjcjfdwdlsdgyvshuncn.supabase.co"
 SUPABASE_PUBLISHABLE_KEY = "sb_publishable_DnB_8STNU8FST_sCkRAM4w_K9c8A4Ft"
+
+# Per-IP flood protection (Pass 5, P5-3). Cloudflare's native Rate Limiting
+# binding: no KV, Durable Object or external service. namespace_id is unique
+# per service so the seven Workers do not share one bucket. 200/minute is an
+# anti-abuse floor, not a quota -- see src/rate-limit.ts for the reasoning.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1002"
+simple = { limit = 200, period = 60 }

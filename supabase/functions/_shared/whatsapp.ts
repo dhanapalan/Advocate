@@ -58,7 +58,8 @@ export async function sendWhatsAppDigest(params: {
 
   const payload = await response.json().catch(() => null);
   if (!response.ok) {
-    const detail = payload && typeof payload === "object" ? JSON.stringify(payload) : response.statusText;
+    const detail =
+      payload && typeof payload === "object" ? JSON.stringify(payload) : response.statusText;
     throw new Error(`Gupshup send failed (${response.status}): ${detail}`);
   }
 

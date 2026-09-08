@@ -52,10 +52,37 @@ async function notifyChambers(data: z.infer<typeof inputSchema>): Promise<void> 
   }
 }
 
+// This endpoint is unauthenticated, writes with the service-role client, and
+// sends an email per submission — so without a cap it is both a way to fill
+// the admin table with junk and a way to burn the Resend quota. Three requests
+// per email per hour is far above any real use (a prospective client submits
+// once, maybe twice if they mistype something) and well below useful spam
+// volume.
+//
+// This is deliberately per-email rather than global: a global hourly cap would
+// let one script lock out every genuine visitor for the rest of the hour.
+// Volumetric abuse from a single source is Cloudflare's job — add a Rate
+// Limiting rule on /_serverFn/* to go with this.
+const MAX_REQUESTS_PER_EMAIL_PER_HOUR = 3;
+
 export const submitContactRequest = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const { count: recent } = await supabaseAdmin
+      .from("contact_requests")
+      .select("id", { count: "exact", head: true })
+      .ilike("email", data.email)
+      .gte("created_at", oneHourAgo);
+    if ((recent ?? 0) >= MAX_REQUESTS_PER_EMAIL_PER_HOUR) {
+      // Their own address, so saying so discloses nothing they don't know.
+      throw new Error(
+        "We've already got your request — someone will be in touch shortly. Please don't resend.",
+      );
+    }
+
     const { error } = await supabaseAdmin.from("contact_requests").insert({
       full_name: data.fullName,
       enrolment_no: data.enrolmentNo || null,

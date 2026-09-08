@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { handleOptions, jsonResponse, errorResponse } from "./cors";
+import { handleOptions, jsonResponse, errorResponse, dbError } from "./cors";
+import { rateLimitResponse, type RateLimitEnv } from "./rate-limit";
 import { authedClient, requireUserId } from "./auth";
 import { requireAssistantModule } from "./require-module";
 
@@ -28,7 +29,7 @@ async function listConversations(req: Request, supabase: SupabaseClient) {
     .select("id, title, matter_ref, updated_at")
     .order("updated_at", { ascending: false })
     .limit(30);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not load your conversations.");
   return jsonResponse(req, data ?? []);
 }
 
@@ -49,21 +50,25 @@ async function listMessages(req: Request, supabase: SupabaseClient, conversation
     .select("id, role, content, sources, created_at")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not load that conversation.");
   return jsonResponse(req, rows ?? []);
 }
 
 async function deleteConversation(req: Request, supabase: SupabaseClient, conversationId: string) {
   if (!isUuid(conversationId)) return errorResponse(req, "Invalid conversation id", 400);
   const { error } = await supabase.from("ai_conversations").delete().eq("id", conversationId);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not delete that conversation.");
   return jsonResponse(req, { ok: true });
 }
 
 export default {
-  async fetch(req: Request): Promise<Response> {
+  async fetch(req: Request, env: RateLimitEnv): Promise<Response> {
     const preflight = handleOptions(req);
     if (preflight) return preflight;
+
+    // Before auth: shed flood traffic at the front door (see rate-limit.ts).
+    const limited = await rateLimitResponse(req, env);
+    if (limited) return limited;
 
     const auth = authedClient(req);
     if (!auth) return errorResponse(req, "Unauthorized", 401);

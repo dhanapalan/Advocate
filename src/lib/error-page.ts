@@ -20,8 +20,13 @@ export function renderErrorPage(): string {
     <div class="card">
       <h1>This page didn't load</h1>
       <p>Something went wrong on our end. You can try refreshing or head back home.</p>
+      <!-- "Try again" is a link, not a button with onclick: an inline event
+           handler is script under CSP, so it only worked because script-src
+           still carries 'unsafe-inline'. This page must keep working on the
+           day that's removed — and an empty-fragment link reloads the current
+           URL with no script at all. -->
       <div class="actions">
-        <button class="primary" onclick="location.reload()">Try again</button>
+        <a class="primary" href="" rel="nofollow">Try again</a>
         <a class="secondary" href="/">Go home</a>
       </div>
     </div>

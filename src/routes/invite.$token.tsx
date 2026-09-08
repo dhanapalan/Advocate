@@ -10,7 +10,16 @@ export const Route = createFileRoute("/invite/$token")({
   component: InvitePage,
 });
 
-type InviteInfo = { tenant_name: string; email: string; role: string; valid: boolean };
+// tenant_name/email/role are only populated while the invite is still usable:
+// get_invite_info() nulls them out once it has been accepted, revoked or
+// expired, so a forwarded link stops disclosing who was invited to which
+// chamber. Only the `valid: false` branch below renders without them.
+type InviteInfo = {
+  tenant_name: string | null;
+  email: string | null;
+  role: string | null;
+  valid: boolean;
+};
 
 function InvitePage() {
   const { token } = Route.useParams();
@@ -36,7 +45,9 @@ function InvitePage() {
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!info) return;
+    // The form only renders on the valid branch, where get_invite_info() has
+    // populated email — this narrows that for the compiler too.
+    if (!info?.valid || !info.email) return;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -102,7 +113,7 @@ function InvitePage() {
             <>
               <h1 className="font-display text-xl font-bold">This invite has expired</h1>
               <p className="mt-2 text-sm text-muted-foreground">
-                Ask whoever invited you to {info.tenant_name} to send a new invite.
+                Ask whoever invited you to send a new invite.
               </p>
             </>
           ) : (

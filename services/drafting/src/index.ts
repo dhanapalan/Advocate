@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { handleOptions, jsonResponse, errorResponse } from "./cors";
+import { handleOptions, jsonResponse, errorResponse, dbError } from "./cors";
+import { rateLimitResponse, type RateLimitEnv } from "./rate-limit";
 import { authedClient, requireUserId } from "./auth";
 import { requireDraftingModule } from "./require-module";
 import { decryptField, encryptField } from "./field-encryption";
@@ -27,7 +28,7 @@ async function listDrafts(req: Request, supabase: SupabaseClient) {
     .select(LIST_COLUMNS)
     .order("created_at", { ascending: false })
     .limit(20);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not load your drafts.");
   const rows = await Promise.all(
     (data ?? []).map(async (d: { content: string | null }) => ({
       ...d,
@@ -53,7 +54,7 @@ async function updateDraftStatus(req: Request, supabase: SupabaseClient, draftId
     .from("ai_drafts")
     .update({ status: body.status })
     .eq("id", draftId);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not update that draft's status.");
   return jsonResponse(req, { ok: true });
 }
 
@@ -71,7 +72,7 @@ async function saveDraft(req: Request, supabase: SupabaseClient, draftId: string
     .from("ai_drafts")
     .update({ content: await encryptField(body.content) })
     .eq("id", draftId);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not save that draft.");
   return jsonResponse(req, { ok: true });
 }
 
@@ -100,14 +101,18 @@ async function saveDictatedDraft(req: Request, supabase: SupabaseClient, userId:
     })
     .select(LIST_COLUMNS)
     .single();
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not save that dictated draft.");
   return jsonResponse(req, { ...saved, content: body.content });
 }
 
 export default {
-  async fetch(req: Request): Promise<Response> {
+  async fetch(req: Request, env: RateLimitEnv): Promise<Response> {
     const preflight = handleOptions(req);
     if (preflight) return preflight;
+
+    // Before auth: shed flood traffic at the front door (see rate-limit.ts).
+    const limited = await rateLimitResponse(req, env);
+    if (limited) return limited;
 
     const auth = authedClient(req);
     if (!auth) return errorResponse(req, "Unauthorized", 401);

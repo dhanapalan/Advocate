@@ -2,6 +2,7 @@ import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { handleOptions, jsonResponse, errorResponse } from "../_shared/cors.ts";
 import { todayIsoIST } from "../_shared/date-ist.ts";
 import { sendWhatsAppDigest } from "../_shared/whatsapp.ts";
+import { secretMatches } from "../_shared/timing-safe.ts";
 
 // Cron-triggered daily digest: for every tenant that has WhatsApp switched on
 // and an active/trialing license, find today's hearings (computed in
@@ -141,13 +142,17 @@ Deno.serve(async (req) => {
   if (preflight) return preflight;
 
   const secret = Deno.env.get("CRON_SHARED_SECRET");
-  if (!secret || req.headers.get("x-cron-secret") !== secret) {
+  if (!secret || !secretMatches(req.headers.get("x-cron-secret"), secret)) {
     return errorResponse(req, "Unauthorized", 401);
   }
 
-  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
-    auth: { persistSession: false },
-  });
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    {
+      auth: { persistSession: false },
+    },
+  );
 
   const todayIso = todayIsoIST();
 

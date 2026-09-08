@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { handleOptions, jsonResponse, errorResponse } from "./cors";
+import { handleOptions, jsonResponse, errorResponse, dbError } from "./cors";
+import { rateLimitResponse, type RateLimitEnv } from "./rate-limit";
 import { authedClient, requireUserId } from "./auth";
 import { requireDocumentsModule } from "./require-module";
 
@@ -33,7 +34,7 @@ async function listDocumentAnalyses(req: Request, supabase: SupabaseClient) {
     .select(LIST_COLUMNS)
     .order("created_at", { ascending: false })
     .limit(20);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not load your documents.");
   return jsonResponse(req, data ?? []);
 }
 
@@ -53,14 +54,18 @@ async function updateDocumentAnalysisStatus(req: Request, supabase: SupabaseClie
     .from("ai_documents")
     .update({ status: body.status })
     .eq("id", docId);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not update that document's review status.");
   return jsonResponse(req, { ok: true });
 }
 
 export default {
-  async fetch(req: Request): Promise<Response> {
+  async fetch(req: Request, env: RateLimitEnv): Promise<Response> {
     const preflight = handleOptions(req);
     if (preflight) return preflight;
+
+    // Before auth: shed flood traffic at the front door (see rate-limit.ts).
+    const limited = await rateLimitResponse(req, env);
+    if (limited) return limited;
 
     const auth = authedClient(req);
     if (!auth) return errorResponse(req, "Unauthorized", 401);

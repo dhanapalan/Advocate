@@ -1,4 +1,4 @@
-import { handleOptions, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { handleOptions, jsonResponse, errorResponse, dbError } from "../_shared/cors.ts";
 import { authedClient, requireUserId } from "../_shared/auth.ts";
 import { chatComplete, enforceUsageQuota, LEGAL_SYSTEM_PROMPT } from "../_shared/ai.ts";
 import { requireModule } from "../_shared/modules.ts";
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
     })
     .select("id, doc_type, matter_ref, instructions, content, status, created_at")
     .single();
-  if (error) return errorResponse(req, error.message, 500);
+  if (error) return dbError(req, error, "Could not save that draft.");
 
   // Already have the plaintext generated above — return that rather than
   // decrypting what was just written back.

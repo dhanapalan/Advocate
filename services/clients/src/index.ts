@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { handleOptions, jsonResponse, errorResponse } from "./cors";
+import { handleOptions, jsonResponse, errorResponse, dbError } from "./cors";
+import { rateLimitResponse, type RateLimitEnv } from "./rate-limit";
 import { authedClient, requireUserId } from "./auth";
 import { requireClientsModule } from "./require-module";
 import { decryptField, encryptField } from "./field-encryption";
@@ -45,7 +46,7 @@ async function listClients(req: Request, supabase: SupabaseClient) {
     .select(CLIENT_COLUMNS)
     .order("created_at", { ascending: false })
     .limit(100);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not load your clients.");
   const rows = await Promise.all(
     ((data ?? []) as ClientRow[]).map(async (client) => ({
       ...client,
@@ -80,7 +81,7 @@ async function createClient(req: Request, supabase: SupabaseClient, userId: stri
     })
     .select(CLIENT_COLUMNS)
     .single();
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not save that client.");
   return jsonResponse(req, { ...(saved as ClientRow), notes: body.notes ?? null });
 }
 
@@ -110,7 +111,7 @@ async function updateClient(req: Request, supabase: SupabaseClient, clientId: st
     .eq("id", clientId)
     .select(CLIENT_COLUMNS)
     .single();
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not update that client.");
   return jsonResponse(req, { ...(saved as ClientRow), notes: body.notes ?? null });
 }
 
@@ -120,7 +121,7 @@ async function deleteClient(req: Request, supabase: SupabaseClient, clientId: st
     .from("clients")
     .delete({ count: "exact" })
     .eq("id", clientId);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not delete that client.");
   if (!count) {
     return errorResponse(req, "Client not found, or you don't have permission to delete it.", 404);
   }
@@ -128,9 +129,13 @@ async function deleteClient(req: Request, supabase: SupabaseClient, clientId: st
 }
 
 export default {
-  async fetch(req: Request): Promise<Response> {
+  async fetch(req: Request, env: RateLimitEnv): Promise<Response> {
     const preflight = handleOptions(req);
     if (preflight) return preflight;
+
+    // Before auth: shed flood traffic at the front door (see rate-limit.ts).
+    const limited = await rateLimitResponse(req, env);
+    if (limited) return limited;
 
     const auth = authedClient(req);
     if (!auth) return errorResponse(req, "Unauthorized", 401);

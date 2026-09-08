@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { handleOptions, jsonResponse, errorResponse } from "./cors";
+import { handleOptions, jsonResponse, errorResponse, dbError } from "./cors";
+import { rateLimitResponse, type RateLimitEnv } from "./rate-limit";
 import { authedClient, requireUserId } from "./auth";
 import { requireBillingModule } from "./require-module";
 
@@ -26,7 +27,7 @@ async function listTimeEntries(req: Request, supabase: SupabaseClient) {
     .select(TIME_ENTRY_COLUMNS)
     .order("entry_date", { ascending: false })
     .limit(200);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not load time entries.");
   return jsonResponse(req, data ?? []);
 }
 
@@ -68,7 +69,7 @@ async function createTimeEntry(req: Request, supabase: SupabaseClient, userId: s
     })
     .select(TIME_ENTRY_COLUMNS)
     .single();
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not save that time entry.");
   return jsonResponse(req, saved);
 }
 
@@ -78,7 +79,7 @@ async function listInvoices(req: Request, supabase: SupabaseClient) {
     .select(INVOICE_COLUMNS)
     .order("created_at", { ascending: false })
     .limit(200);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not load invoices.");
   return jsonResponse(req, data ?? []);
 }
 
@@ -122,7 +123,7 @@ async function createInvoice(req: Request, supabase: SupabaseClient, userId: str
     })
     .select(INVOICE_COLUMNS)
     .single();
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not create that invoice.");
   return jsonResponse(req, saved);
 }
 
@@ -142,14 +143,18 @@ async function updateInvoiceStatus(req: Request, supabase: SupabaseClient, invoi
     .from("invoices")
     .update({ status: body.status })
     .eq("id", invoiceId);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not update that invoice.");
   return jsonResponse(req, { ok: true });
 }
 
 export default {
-  async fetch(req: Request): Promise<Response> {
+  async fetch(req: Request, env: RateLimitEnv): Promise<Response> {
     const preflight = handleOptions(req);
     if (preflight) return preflight;
+
+    // Before auth: shed flood traffic at the front door (see rate-limit.ts).
+    const limited = await rateLimitResponse(req, env);
+    if (limited) return limited;
 
     const auth = authedClient(req);
     if (!auth) return errorResponse(req, "Unauthorized", 401);

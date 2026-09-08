@@ -1,5 +1,6 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { handleOptions, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { handleOptions, jsonResponse, errorResponse, dbError } from "../_shared/cors.ts";
+import { secretMatches } from "../_shared/timing-safe.ts";
 
 // Receives delivery-status callbacks from the WhatsApp provider (Gupshup) and
 // updates the matching whatsapp_messages row. A synchronous send only ever
@@ -8,12 +9,17 @@ import { handleOptions, jsonResponse, errorResponse } from "../_shared/cors.ts";
 // the fact.
 //
 // verify_jwt = false, same as whatsapp-diary-digest — the caller is Gupshup's
-// servers, not a LexDiary user, so there is no JWT to check. AUTHENTICATION
-// HERE IS INCOMPLETE: Gupshup's actual webhook signature/verification scheme
-// depends on the final provider account setup (a per-app HMAC secret or a
-// shared token, configured in their dashboard) and isn't known yet — the
-// TODO below marks exactly where that check belongs before this goes live.
-// Until it's added, this endpoint should be treated as not production-ready.
+// servers, not a LexDiary user, so there is no JWT to check. This endpoint
+// therefore authenticates with a shared secret, exactly as whatsapp-diary-digest
+// does, and FAILS CLOSED if that secret isn't configured: an unauthenticated
+// endpoint holding a service-role client is not something to leave open on the
+// strength of a TODO comment.
+//
+// Gupshup's dashboard lets a callback URL carry a query string but not always a
+// custom header, so both are accepted. When their per-app HMAC scheme is
+// finalized for this account, add the signature check alongside this one rather
+// than in place of it — a shared secret in a URL is weaker than a signature
+// (it can leak via provider-side logs), so it is the floor, not the ceiling.
 
 const GUPSHUP_STATUS_MAP: Record<string, "sent" | "delivered" | "failed" | "read"> = {
   submitted: "sent",
@@ -28,9 +34,15 @@ Deno.serve(async (req) => {
   if (preflight) return preflight;
   if (req.method !== "POST") return errorResponse(req, "Method not allowed", 405);
 
-  // TODO before production use: verify the request actually came from
-  // Gupshup (their dashboard-configured signature/token scheme — not yet
-  // finalized, see the note above).
+  // Fail closed: with no secret configured there is no way to tell Gupshup
+  // apart from anyone else who found the URL, and this handler goes on to use
+  // a service-role client.
+  const secret = Deno.env.get("WHATSAPP_WEBHOOK_SECRET");
+  if (!secret) return errorResponse(req, "Webhook is not configured", 503);
+
+  const provided =
+    req.headers.get("x-webhook-secret") ?? new URL(req.url).searchParams.get("token");
+  if (!secretMatches(provided, secret)) return errorResponse(req, "Unauthorized", 401);
 
   let payload: {
     messageId?: string;
@@ -57,9 +69,13 @@ Deno.serve(async (req) => {
     return jsonResponse(req, { ok: true, ignored: rawStatus });
   }
 
-  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!, {
-    auth: { persistSession: false },
-  });
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    {
+      auth: { persistSession: false },
+    },
+  );
 
   const update: Record<string, unknown> = { status: mappedStatus };
   if (mappedStatus === "delivered") update.delivered_at = new Date().toISOString();
@@ -69,6 +85,6 @@ Deno.serve(async (req) => {
     .update(update)
     .eq("provider_message_id", providerMessageId);
 
-  if (error) return errorResponse(req, error.message, 500);
+  if (error) return dbError(req, error, "Could not update the delivery status.");
   return jsonResponse(req, { ok: true });
 });
