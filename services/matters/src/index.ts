@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { handleOptions, jsonResponse, errorResponse, dbError } from "./cors";
+import { rateLimitResponse, type RateLimitEnv } from "./rate-limit";
 import { authedClient, requireUserId } from "./auth";
 import { requireMattersModule } from "./require-module";
 import { encryptField } from "./field-encryption";
@@ -134,9 +135,13 @@ async function deleteMatter(req: Request, supabase: SupabaseClient, matterId: st
 }
 
 export default {
-  async fetch(req: Request): Promise<Response> {
+  async fetch(req: Request, env: RateLimitEnv): Promise<Response> {
     const preflight = handleOptions(req);
     if (preflight) return preflight;
+
+    // Before auth: shed flood traffic at the front door (see rate-limit.ts).
+    const limited = await rateLimitResponse(req, env);
+    if (limited) return limited;
 
     const auth = authedClient(req);
     if (!auth) return errorResponse(req, "Unauthorized", 401);

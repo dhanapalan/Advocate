@@ -1,4 +1,5 @@
 import { handleOptions, errorResponse } from "./cors";
+import { rateLimitResponse, type RateLimitEnv } from "./rate-limit";
 import { authedClient, requireUserId } from "./auth";
 import { requireDiaryModule } from "./require-module";
 import { listHearings, createHearing, updateHearingStatus } from "./hearings";
@@ -26,9 +27,13 @@ import {
 // confirmed by grep before this extraction.
 
 export default {
-  async fetch(req: Request): Promise<Response> {
+  async fetch(req: Request, env: RateLimitEnv): Promise<Response> {
     const preflight = handleOptions(req);
     if (preflight) return preflight;
+
+    // Before auth: shed flood traffic at the front door (see rate-limit.ts).
+    const limited = await rateLimitResponse(req, env);
+    if (limited) return limited;
 
     const auth = authedClient(req);
     if (!auth) return errorResponse(req, "Unauthorized", 401);
