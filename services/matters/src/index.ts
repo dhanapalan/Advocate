@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { handleOptions, jsonResponse, errorResponse } from "./cors";
+import { handleOptions, jsonResponse, errorResponse, dbError } from "./cors";
 import { authedClient, requireUserId } from "./auth";
 import { requireMattersModule } from "./require-module";
 import { encryptField } from "./field-encryption";
@@ -51,7 +51,7 @@ async function listMatters(req: Request, supabase: SupabaseClient) {
     .select(LIST_COLUMNS)
     .order("created_at", { ascending: false })
     .limit(100);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not load your cases.");
   return jsonResponse(req, data ?? []);
 }
 
@@ -79,7 +79,7 @@ async function createMatter(req: Request, supabase: SupabaseClient, userId: stri
     })
     .select(LIST_COLUMNS)
     .single();
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not create that case.");
   return jsonResponse(req, saved);
 }
 
@@ -113,7 +113,7 @@ async function updateMatter(req: Request, supabase: SupabaseClient, matterId: st
     .eq("id", matterId)
     .select(WRITE_COLUMNS)
     .single();
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not update that case.");
   // Caller already has the plaintext it sent — return that rather than
   // decrypting what was just written back, same as the original
   // matters.functions.ts.
@@ -126,7 +126,7 @@ async function deleteMatter(req: Request, supabase: SupabaseClient, matterId: st
     .from("matters")
     .delete({ count: "exact" })
     .eq("id", matterId);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not delete that case.");
   if (!count) {
     return errorResponse(req, "Matter not found, or you don't have permission to delete it.", 404);
   }

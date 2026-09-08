@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { jsonResponse, errorResponse } from "./cors";
+import { jsonResponse, errorResponse, dbError } from "./cors";
 import { encryptField } from "./field-encryption";
 import { getCauseListEnabled } from "./tenant-integrations";
 import { parseBulkCauseList } from "./cause-list-parse";
@@ -161,7 +161,7 @@ export async function listCauseListSources(req: Request, supabase: SupabaseClien
       "id, court, bench, list_type, source_type, enabled, last_sync_at, last_attempt_at, sync_status, error_message, created_at",
     )
     .order("created_at", { ascending: false });
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not load your cause-list sources.");
   return jsonResponse(req, data ?? []);
 }
 
@@ -196,7 +196,7 @@ export async function createCauseListSource(
       "id, court, bench, list_type, source_type, enabled, last_sync_at, last_attempt_at, sync_status, error_message, created_at",
     )
     .single();
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not create that cause-list source.");
   return jsonResponse(req, saved);
 }
 
@@ -218,7 +218,7 @@ export async function setCauseListSourceEnabled(
     .from("cause_list_sources")
     .update({ enabled: body.enabled })
     .eq("id", sourceId);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not update that cause-list source.");
   return jsonResponse(req, { ok: true });
 }
 
@@ -259,7 +259,7 @@ export async function ingestCauseList(req: Request, supabase: SupabaseClient, us
     .select("*")
     .eq("id", sourceId)
     .single();
-  if (sourceError) return errorResponse(req, sourceError.message, 400);
+  if (sourceError) return dbError(req, sourceError, "Could not load that cause-list source.");
   if (!source.enabled) {
     return errorResponse(
       req,
@@ -306,7 +306,8 @@ export async function ingestCauseList(req: Request, supabase: SupabaseClient, us
     supabase.from("matters").select("id, title, case_number, court, opposing_party").limit(500),
     supabase.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
   ]);
-  if (mattersError) return errorResponse(req, mattersError.message, 400);
+  if (mattersError)
+    return dbError(req, mattersError, "Could not load your cases to match against.");
   const candidates = (matters ?? []).map(
     (m: {
       id: string;
@@ -329,7 +330,7 @@ export async function ingestCauseList(req: Request, supabase: SupabaseClient, us
     .select("*")
     .eq("source_id", source.id)
     .is("superseded_by", null);
-  if (headError) return errorResponse(req, headError.message, 400);
+  if (headError) return dbError(req, headError, "Could not read the existing cause-list entries.");
   const headByRef = new Map(
     (headRecords ?? []).map((r: CauseListRecordRow) => [r.source_reference, r]),
   );
@@ -449,7 +450,7 @@ export async function ingestCauseList(req: Request, supabase: SupabaseClient, us
       p_reconcile_matter_title: matchedMatter?.title ?? null,
       p_reconcile_purpose_encrypted: matchedMatter ? await encryptField(row.stage) : null,
     });
-    if (ingestError) return errorResponse(req, ingestError.message, 400);
+    if (ingestError) return dbError(req, ingestError, "Could not import that cause-list row.");
   }
 
   const removedRefs = findRemovedReferences([...headByRef.keys()], currentReferences);
@@ -506,7 +507,8 @@ export async function listCauseListEntries(req: Request, supabase: SupabaseClien
     .eq("list_date", date)
     .is("superseded_by", null)
     .order("serial_number", { ascending: true, nullsFirst: false });
-  if (recordsError) return errorResponse(req, recordsError.message, 400);
+  if (recordsError)
+    return dbError(req, recordsError, "Could not load the cause list for that date.");
 
   const recordIds = (records ?? []).map((r: { id: string }) => r.id);
   const [{ data: matches }, { data: changesToday }, { data: hearings }] = await Promise.all([
@@ -636,14 +638,14 @@ export async function matchMatterManually(
     .select("*")
     .eq("id", matchId)
     .single();
-  if (matchError) return errorResponse(req, matchError.message, 400);
+  if (matchError) return dbError(req, matchError, "Could not load that cause-list match.");
 
   const { data: matter, error: matterError } = await supabase
     .from("matters")
     .select("id, title")
     .eq("id", body.matterId)
     .single();
-  if (matterError) return errorResponse(req, matterError.message, 400);
+  if (matterError) return dbError(req, matterError, "Could not load that case.");
 
   const { error: updateError } = await supabase
     .from("cause_list_matches")
@@ -656,14 +658,15 @@ export async function matchMatterManually(
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", match.id);
-  if (updateError) return errorResponse(req, updateError.message, 400);
+  if (updateError) return dbError(req, updateError, "Could not update that cause-list match.");
 
   const { data: record, error: recordError } = await supabase
     .from("cause_list_records")
     .select("*")
     .eq("id", match.record_id)
     .single();
-  if (recordError) return errorResponse(req, recordError.message, 400);
+  if (recordError)
+    return dbError(req, recordError, "Could not update the linked cause-list record.");
 
   await reconcileHearing(supabase, userId, record, matter.id, matter.title);
   return jsonResponse(req, { ok: true });
@@ -685,7 +688,7 @@ export async function rejectCauseListMatch(
       reviewed_at: new Date().toISOString(),
     })
     .eq("id", matchId);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not reject that cause-list match.");
   return jsonResponse(req, { ok: true });
 }
 
@@ -704,7 +707,7 @@ export async function listCauseListChangeHistory(
     .eq("source_id", sourceId)
     .eq("source_reference", sourceReference)
     .order("created_at", { ascending: true });
-  if (versionsError) return errorResponse(req, versionsError.message, 400);
+  if (versionsError) return dbError(req, versionsError, "Could not load the cause-list history.");
 
   const versionIds = (versions ?? []).map((v: { id: string }) => v.id);
   if (versionIds.length === 0) return jsonResponse(req, []);
@@ -714,6 +717,6 @@ export async function listCauseListChangeHistory(
     .select("id, record_id, change_type, field_name, old_value, new_value, detected_at")
     .in("record_id", versionIds)
     .order("detected_at", { ascending: true });
-  if (changesError) return errorResponse(req, changesError.message, 400);
+  if (changesError) return dbError(req, changesError, "Could not load the cause-list changes.");
   return jsonResponse(req, changes ?? []);
 }

@@ -1,4 +1,4 @@
-import { handleOptions, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { handleOptions, jsonResponse, errorResponse, dbError } from "../_shared/cors.ts";
 import { authedClient, requireUserId } from "../_shared/auth.ts";
 import {
   chatComplete,
@@ -78,7 +78,7 @@ Deno.serve(async (req) => {
       "id, name, matter_ref, doc_kind, summary, parties, key_dates, tags, risk_notes, status, created_at",
     )
     .single();
-  if (error) return errorResponse(req, error.message, 500);
+  if (error) return dbError(req, error, "Could not save that document analysis.");
 
   return jsonResponse(req, saved);
 });

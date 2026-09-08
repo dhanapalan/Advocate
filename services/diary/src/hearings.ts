@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { jsonResponse, errorResponse } from "./cors";
+import { jsonResponse, errorResponse, dbError } from "./cors";
 import { decryptField, encryptField } from "./field-encryption";
 
 // Ported from diary.functions.ts's listHearings/createHearing/
@@ -22,7 +22,7 @@ export async function listHearings(req: Request, supabase: SupabaseClient) {
     .select(HEARING_COLUMNS)
     .order("hearing_date", { ascending: true })
     .limit(200);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not load your diary.");
   const rows = await Promise.all(
     (data ?? []).map(async (h: { purpose: string | null }) => ({
       ...h,
@@ -62,7 +62,7 @@ export async function createHearing(req: Request, supabase: SupabaseClient, user
     })
     .select(HEARING_COLUMNS)
     .single();
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not save that hearing.");
   return jsonResponse(req, { ...saved, purpose: body.purpose ?? null });
 }
 
@@ -89,6 +89,6 @@ export async function updateHearingStatus(
     .from("hearings")
     .update({ status: body.status })
     .eq("id", hearingId);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not update that hearing.");
   return jsonResponse(req, { ok: true });
 }

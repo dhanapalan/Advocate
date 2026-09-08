@@ -6,7 +6,11 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", ".output", ".vinxi", "android", "ios"] },
+  // .wrangler holds Wrangler's own build output — services/*/.wrangler/tmp/
+  // deploy-*/index.js is a generated bundle that alone accounted for ~5.9k
+  // phantom lint errors. Already gitignored; ignore it here too so `bun run
+  // lint` reflects source, not leftover deploy artifacts.
+  { ignores: ["dist", ".output", ".vinxi", "android", "ios", "**/.wrangler"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

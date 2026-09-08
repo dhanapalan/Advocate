@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { handleOptions, jsonResponse, errorResponse } from "./cors";
+import { handleOptions, jsonResponse, errorResponse, dbError } from "./cors";
 import { authedClient, requireUserId } from "./auth";
 import { requireAssistantModule } from "./require-module";
 
@@ -28,7 +28,7 @@ async function listConversations(req: Request, supabase: SupabaseClient) {
     .select("id, title, matter_ref, updated_at")
     .order("updated_at", { ascending: false })
     .limit(30);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not load your conversations.");
   return jsonResponse(req, data ?? []);
 }
 
@@ -49,14 +49,14 @@ async function listMessages(req: Request, supabase: SupabaseClient, conversation
     .select("id, role, content, sources, created_at")
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true });
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not load that conversation.");
   return jsonResponse(req, rows ?? []);
 }
 
 async function deleteConversation(req: Request, supabase: SupabaseClient, conversationId: string) {
   if (!isUuid(conversationId)) return errorResponse(req, "Invalid conversation id", 400);
   const { error } = await supabase.from("ai_conversations").delete().eq("id", conversationId);
-  if (error) return errorResponse(req, error.message, 400);
+  if (error) return dbError(req, error, "Could not delete that conversation.");
   return jsonResponse(req, { ok: true });
 }
 

@@ -1,5 +1,5 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { handleOptions, jsonResponse, errorResponse } from "../_shared/cors.ts";
+import { handleOptions, jsonResponse, errorResponse, dbError } from "../_shared/cors.ts";
 import { authedClient, requireUserId } from "../_shared/auth.ts";
 
 // login_success/logout require a verified JWT — actor_user_id is resolved
@@ -62,11 +62,19 @@ Deno.serve(async (req) => {
     userId = body.userId;
   }
 
-  const anon = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
-    auth: { persistSession: false },
-  });
+  // Service-role, not anon: log_auth_event() derives the row's tenant_id from
+  // p_actor_user_id, so a caller who can reach the RPC directly can forge audit
+  // entries into any tenant's trail. Writing with service-role lets that RPC be
+  // revoked from anon/authenticated (see the migration of the same name), which
+  // makes the validation above — allowed event types, JWT-resolved actor id,
+  // server-read IP — mandatory rather than merely the intended path.
+  const admin = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { persistSession: false } },
+  );
 
-  const { error } = await anon.rpc("log_auth_event", {
+  const { error } = await admin.rpc("log_auth_event", {
     p_actor_user_id: userId,
     p_email: email,
     p_action: body.event,
@@ -74,7 +82,7 @@ Deno.serve(async (req) => {
     p_ip: clientIp(req),
     p_user_agent: req.headers.get("user-agent") ?? "unknown",
   });
-  if (error) return errorResponse(req, error.message, 500);
+  if (error) return dbError(req, error, "Could not record that event.");
 
   return jsonResponse(req, { ok: true });
 });

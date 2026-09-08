@@ -86,7 +86,21 @@ const SECURITY_HEADERS: Record<string, string> = {
   "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
   "Content-Security-Policy": [
     "default-src 'self'",
+    // 'unsafe-inline' is still here for one reason: TanStack Start's SSR
+    // streams inline <script> blocks to hand the dehydrated router state to
+    // the client, and it has no nonce/hash hook to attach a per-request nonce
+    // to them. Removing it without that support breaks hydration outright.
+    // The app's own code no longer depends on it — the last inline handler
+    // (the error page's onclick) was removed — so this becomes a one-line
+    // change the moment TanStack Start exposes a nonce. Tracked as the S17
+    // finding in docs/security-test-plan.md; note that a browser ignores
+    // 'unsafe-inline' entirely once a nonce is present, so the two can't be
+    // shipped as a half-measure together.
     "script-src 'self' 'unsafe-inline'",
+    // Plugin content is a script-execution vector of its own and nothing here
+    // uses <object>/<embed>. default-src would fall back to 'self'; 'none' is
+    // strictly tighter.
+    "object-src 'none'",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: blob:",
     "font-src 'self' data: https://fonts.gstatic.com",
